@@ -11,6 +11,8 @@ export const runtimeChapterSelect = {
   taskSheet: true,
   sceneCards: true,
   hook: true,
+  sepiaBlueprintJson: true,
+  sepiaTechKeysJson: true,
 } as const;
 
 export function extractChapterOpening(content: string, maxLength: number): string {

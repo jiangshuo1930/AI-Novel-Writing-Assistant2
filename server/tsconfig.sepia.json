@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "incremental": false,
+    "tsBuildInfoFile": null,
+    "types": ["node"]
+  },
+  "include": ["src/services/sepia/**/*.ts"],
+  "exclude": ["dist", "node_modules", "src/services/sepia/pack/source"]
+}

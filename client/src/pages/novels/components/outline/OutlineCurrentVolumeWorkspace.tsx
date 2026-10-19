@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import TensionCurvePanel, { type TensionCurveSeries } from "@/components/tensionCurve/TensionCurvePanel";
 import VolumePayoffOverviewCard from "../VolumePayoffOverviewCard";
+import SepiaVolumeDiagnosticsCard from "./SepiaVolumeDiagnosticsCard";
 import type { OutlineTabViewProps } from "../NovelEditView.types";
 
 type OutlineVolume = OutlineTabViewProps["volumes"][number];
 
 interface OutlineCurrentVolumeWorkspaceProps {
+  novelId: string;
   selectedVolume: OutlineVolume | undefined;
   strategyPlan: OutlineTabViewProps["strategyPlan"];
   volumes: OutlineVolume[];
@@ -23,6 +25,7 @@ interface OutlineCurrentVolumeWorkspaceProps {
 
 export default function OutlineCurrentVolumeWorkspace(props: OutlineCurrentVolumeWorkspaceProps) {
   const {
+    novelId,
     selectedVolume,
     strategyPlan,
     volumes,
@@ -152,6 +155,11 @@ export default function OutlineCurrentVolumeWorkspace(props: OutlineCurrentVolum
 
         <div className="space-y-3">
           <VolumePayoffOverviewCard selectedVolume={selectedVolume} />
+          <SepiaVolumeDiagnosticsCard
+            novelId={novelId}
+            chapterOrders={selectedVolume.chapters.map((chapter) => chapter.chapterOrder)}
+            volumeLabel={`第${selectedVolume.sortOrder}卷`}
+          />
           <TensionCurvePanel
             title="本卷紧张度"
             subtitle="查看章节冲突强度走向，红点表示你固定给后续 AI 保留的强度。"

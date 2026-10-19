@@ -1,6 +1,7 @@
 import type { Chapter, ChapterEditorDiagnosticCard, ChapterEditorWorkspaceResponse } from "@ai-novel/shared/types/novel";
 import { Button } from "@/components/ui/button";
-import { ChapterEditorDiagnosticList } from "./diagnostics";
+import { ChapterEditorDiagnosticList, SepiaGateCard } from "./diagnostics";
+import type { SepiaTextRange } from "@ai-novel/shared/utils/sepiaRange";
 
 interface ChapterEditorSidebarProps {
   chapter: Chapter;
@@ -11,6 +12,8 @@ interface ChapterEditorSidebarProps {
   isDirty: boolean;
   isSaving: boolean;
   selectedDiagnosticId: string | null;
+  /** 机械门要拿当前草稿原文下来跑，不读库 */
+  chapterContent: string;
   onBack?: () => void;
   backLabel?: string;
   onOpenChapterVersions?: () => void;
@@ -19,6 +22,7 @@ interface ChapterEditorSidebarProps {
   isRefreshingWorkspace?: boolean;
   onSave: () => void;
   onFocusDiagnostic: (card: ChapterEditorDiagnosticCard) => void;
+  onFocusSepiaRange: (range: SepiaTextRange) => void;
   onRunDiagnostic: (card: ChapterEditorDiagnosticCard) => void;
   onResolveDiagnostic: (card: ChapterEditorDiagnosticCard) => void;
   isResolvingDiagnostic?: boolean;
@@ -69,6 +73,13 @@ export default function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
           </div>
         </details>
       </section>
+      <SepiaGateCard
+        chapterId={chapter.id}
+        content={props.chapterContent}
+        disabled={props.diagnosticsDisabled ?? false}
+        isDirty={props.isDirty}
+        onFocusRange={props.onFocusSepiaRange}
+      />
       <ChapterEditorDiagnosticList workspace={workspace} status={props.workspaceStatus} selectedId={props.selectedDiagnosticId}
         disabled={props.diagnosticsDisabled ?? false} isDirty={props.isDirty} isResolving={props.isResolvingDiagnostic ?? false}
         onFocus={props.onFocusDiagnostic} onRun={props.onRunDiagnostic} onResolve={props.onResolveDiagnostic} />

@@ -6,6 +6,7 @@ import type {
 import { createContextBlock } from "../../../core/contextBudget";
 import type { PromptContextBlock } from "../../../core/promptTypes";
 import { buildWriterStyleContractText } from "../../../../services/styleEngine/styleContractText";
+import { renderSepiaContractText } from "../../../../services/sepia/contract/buildSepiaContract";
 import {
   buildCharacterGuidanceText,
   buildParticipantText,
@@ -517,6 +518,17 @@ export function buildChapterWriterContextBlocks(
         required: true,
         allowSummary: false,
         content: buildWriterStyleContractText(writeContext.styleContract, writeContext.bookContract?.narrativePov),
+      })
+      : null,
+    // sepia 生成期契约：required=false 是关键——预算紧张时它可以被裁掉，style_contract 不能被裁
+    writeContext.sepiaContract
+      ? createContextBlock({
+        id: "sepia_contract",
+        group: "sepia_contract",
+        priority: 72,
+        required: false,
+        allowSummary: true,
+        content: renderSepiaContractText(writeContext.sepiaContract),
       })
       : null,
     includeContinuationConstraints

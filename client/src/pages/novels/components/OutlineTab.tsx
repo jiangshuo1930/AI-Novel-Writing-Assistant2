@@ -600,6 +600,7 @@ export default function OutlineTab(props: OutlineTabViewProps) {
 
         <TabsContent value="current" className="mt-0">
           <OutlineCurrentVolumeWorkspace
+            novelId={props.novelId}
             selectedVolume={selectedVolume}
             strategyPlan={strategyPlan}
             volumes={volumes}

@@ -8,6 +8,10 @@ import {
 } from "../../director/issues";
 
 export function resolvePipelineRuntimeIssueCode(error: unknown): DirectorIssueCode {
+  // 生成前门拦下的章节：架构表要作者补，自动重试只会重复同样的输入
+  if (error && typeof error === "object" && (error as { name?: unknown }).name === "BlueprintGateBlockedError") {
+    return "planning.blueprint_gate_blocked";
+  }
   if (error && typeof error === "object" && "status" in error && error.status === 402) {
     return "runtime.model_unavailable";
   }

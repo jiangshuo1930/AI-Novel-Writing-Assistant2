@@ -29,6 +29,8 @@ server/src/prisma/dev.db-journal
 .codegraph/
 .trae/
 server/.tmp/
+server/dev.db.bak-*
+client/dist-verify/
 desktop/build/
 desktop/runtime-migration-smoke/
 server/prisma-diff-migrations-to-schema.sql

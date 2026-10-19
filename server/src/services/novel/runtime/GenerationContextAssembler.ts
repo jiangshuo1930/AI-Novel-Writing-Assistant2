@@ -59,6 +59,9 @@ import {
 import { resolveChapterResourceCharacterIds } from "./context/chapterParticipantSelection";
 import { evaluateChapterContextProviderContracts } from "./context/chapterContextProviderContracts";
 import { characterLocationService } from "../characters/locations";
+import { buildSepiaWritingContract } from "../../../services/sepia/contract/buildSepiaContract";
+import { readSelectedIds } from "../../../services/sepia/techniques/sepiaTechniques";
+import { isSepiaDisabled } from "../../../services/sepia/sepiaFlags";
 
 export { buildBlockingPendingReviewProposalWhere } from "./context/pendingReviewContext";
 export { resolveChapterResourceCharacterIds } from "./context/chapterParticipantSelection";
@@ -124,6 +127,8 @@ export class GenerationContextAssembler {
       taskSheet: string | null;
       sceneCards: string | null;
       hook: string | null;
+      sepiaBlueprintJson?: string | null;
+      sepiaTechKeysJson?: string | null;
     };
     contextPackage: GenerationContextPackage;
   }> {
@@ -580,6 +585,44 @@ export class GenerationContextAssembler {
         chapterRepairContext: null,
       },
     });
+
+    // sepia 生成期契约：章上有架构表或技法记录时才注入；任何异常都不阻断生成。
+    // 关掉合并层（SEPIA_DISABLED=1）时连契约也不产出，回滚路径与合并前一致。
+    if (!isSepiaDisabled()) {
+      try {
+        const recentTechRows = await prisma.chapter.findMany({
+          where: { novelId, order: { lt: chapter.order }, sepiaTechKeysJson: { not: null } },
+          orderBy: { order: "desc" },
+          take: 3,
+          select: { sepiaTechKeysJson: true },
+        });
+        const usedRecently = recentTechRows.flatMap((row) => readSelectedIds(row.sepiaTechKeysJson));
+        const sepiaContract = buildSepiaWritingContract({
+          chapter: {
+            order: chapter.order,
+            sepiaBlueprintJson: chapter.sepiaBlueprintJson ?? null,
+            sepiaTechKeysJson: chapter.sepiaTechKeysJson ?? null,
+          },
+          novel: {
+            title: novel.title,
+            genre: novel.genre ? { name: novel.genre.name, description: novel.genre.description } : null,
+            primaryStoryMode: novel.primaryStoryMode
+              ? { name: novel.primaryStoryMode.name, description: novel.primaryStoryMode.description }
+              : null,
+          },
+          usedRecently,
+        });
+        if (sepiaContract) {
+          chapterWriteContext.sepiaContract = sepiaContract;
+        }
+      } catch (error) {
+        console.warn("[context-assembler] sepia contract build failed", {
+          novelId,
+          chapterId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
 
     // 填充事实账本：读取已发生不可逆事实，注入 completedMilestones
     try {

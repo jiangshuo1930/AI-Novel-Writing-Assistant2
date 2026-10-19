@@ -349,6 +349,7 @@ model Novel {
   emotionIntensity  EmotionIntensity?
   aiFreedom         AIFreedom?
   postGenerationStyleReviewEnabled Boolean @default(true)
+  sepiaBlueprintGate String?
   defaultChapterLength Int?
   estimatedChapterCount Int?
   projectStatus     ProjectProgressStatus? @default(not_started)
@@ -687,6 +688,9 @@ model Chapter {
   riskFlags       String?
   hook            String?
   expectation     String?
+  sepiaBlueprintJson String?
+  sepiaGateStatus    String?
+  sepiaTechKeysJson  String?
   novelId         String
   novel           Novel                  @relation(fields: [novelId], references: [id], onDelete: Cascade)
   chapterSummary  ChapterSummary?
@@ -1742,6 +1746,9 @@ model AntiAiRule {
   autoRewrite      Boolean        @default(false)
   enabled          Boolean        @default(true)
   globalBaselineEnabled Boolean   @default(false)
+  packKey          String?
+  packVersion      String?
+  ruleGroup        String?
   profileBindings  StyleProfileAntiAiRule[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt

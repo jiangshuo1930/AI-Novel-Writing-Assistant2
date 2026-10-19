@@ -31,6 +31,7 @@ import AntiAiRuleDialog from "./components/AntiAiRuleDialog";
 import AntiAiRuleEffectTestCard from "./components/AntiAiRuleEffectTestCard";
 import AntiAiRuleList from "./components/AntiAiRuleList";
 import AntiAiRuleStats from "./components/AntiAiRuleStats";
+import SepiaPackUpgradeCard from "./components/SepiaPackUpgradeCard";
 
 export default function AntiAiRulesPage() {
   const queryClient = useQueryClient();
@@ -283,6 +284,13 @@ export default function AntiAiRulesPage() {
         </div>
         {rulesQuery.isPending ? <p role="status" className="text-sm text-muted-foreground">正在读取规则…</p> : !rulesQuery.isError ? <AntiAiRuleStats {...stats} /> : null}
       </header>
+
+      <SepiaPackUpgradeCard
+        onImported={() => {
+          void rulesQuery.refetch();
+          void effectiveQuery.refetch();
+        }}
+      />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <AntiAiRuleList

@@ -1,0 +1,123 @@
+{
+  "packVersion": "0.5.1",
+  "contentHash": "e7229f4dc82baf3533c57512e5601713f448fede330406f59a3e9b365a29b991",
+  "sourceHash": "e5c94c9d9b7502103e94f413714556359f8f2f0a42474fa49db27284e016e144",
+  "builtAt": "2026-10-19T15:37:54+00:00",
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 5129,
+      "sha256": "59d1ec0492ad65f5bc995993cea5f3773dd29ba860950cec9964a8a0350ab674"
+    },
+    {
+      "path": "SKILL.md",
+      "bytes": 10754,
+      "sha256": "224f443b18c64a7031d7a62cbcdc06e4c9bb095a65b986d0ebc4c5c55fcce496"
+    },
+    {
+      "path": "VERSION",
+      "bytes": 7,
+      "sha256": "88fff28edccdea7916214e5182585bda12e988b6b697fa37563d84d3eda8d2c7"
+    },
+    {
+      "path": "references/arc-pass.md",
+      "bytes": 4842,
+      "sha256": "8f26f3a806885e0982e61152a02c3e0aae589ad3791dfa82b7ce08cb424351e1"
+    },
+    {
+      "path": "references/discourse-pass.md",
+      "bytes": 3710,
+      "sha256": "fa11882f621e5fa0adc2e91e3e098ef22ee328cf66c8fe1e36998aa91c1720d7"
+    },
+    {
+      "path": "references/model-fingerprints.md",
+      "bytes": 3199,
+      "sha256": "06e0d5f496a862f9808743c70bf8086c24914465a2a0f7e24b0b6811b5b5ddb5"
+    },
+    {
+      "path": "references/narrative-pass.md",
+      "bytes": 5755,
+      "sha256": "d8f6acc1f6208ee299b879e9f567965b6f54eb9abc6342899f9f3acb2cf248b6"
+    },
+    {
+      "path": "references/rubric.md",
+      "bytes": 6285,
+      "sha256": "6a0f904722e3e57eb8527e8368cdcc2f7d90e06845006769ec16b3c199feba14"
+    },
+    {
+      "path": "references/state-schema.md",
+      "bytes": 3954,
+      "sha256": "b38942e086b42f08b5b4ec6c7f73133166c53a7d63ca61e38427f5e1c0651e21"
+    },
+    {
+      "path": "references/style-surface.md",
+      "bytes": 5378,
+      "sha256": "b0df756d8e78ed8e217621f0abe6a16f8f49142da333869db58f02bbc4d825a8"
+    },
+    {
+      "path": "references/zh-fiction/anti-patterns.md",
+      "bytes": 5758,
+      "sha256": "afb6595e7090c7b49c5ccdb5bb0902290d8a7258c00d12a135eabf039b75d9b9"
+    },
+    {
+      "path": "references/zh-fiction/banned-words.md",
+      "bytes": 10933,
+      "sha256": "a10103fd3b54a525b99c0aacde7b0ed7c705bcbfa7c7a35143eb08e5abe59e8b"
+    },
+    {
+      "path": "references/zh-fiction/diagnosis.md",
+      "bytes": 7608,
+      "sha256": "aaaa3ef15e1db6d15db7ac4d5dc490be4e21424d7b937ae160bf68d4fe04f236"
+    },
+    {
+      "path": "references/zh-fiction/roles.md",
+      "bytes": 12253,
+      "sha256": "2d284f0107189a7d088f35a8dcf3d523c5bb5d98f4f78e46ff92327bb64d4756"
+    },
+    {
+      "path": "references/zh-fiction/selfcheck.md",
+      "bytes": 13473,
+      "sha256": "39b9ea659ed218d02bc92d29e9d7c110d39a52306ea7de28a3a2a526139bfb3f"
+    },
+    {
+      "path": "references/zh-fiction/techniques.md",
+      "bytes": 16748,
+      "sha256": "0971217728f7b5ae8c174a2d03ed5e01fb1ffd61f5225ee5927d580e422acabc"
+    },
+    {
+      "path": "scripts/README.md",
+      "bytes": 1879,
+      "sha256": "39cd6bc5117664dcd42c3541041c997a688b4d5665ac08ab6fd941f597020430"
+    },
+    {
+      "path": "scripts/deslop/check-ai-patterns.js",
+      "bytes": 76860,
+      "sha256": "fac1d826d71655ff1dd513215d41ffa486fadb5dfc2224ccc3389185edca22e1"
+    },
+    {
+      "path": "scripts/deslop/check-degeneration.js",
+      "bytes": 15453,
+      "sha256": "d43b5f6b7f49771c295562ffc3552535b95b7c745a05c19c5cb99a7550c5de7a"
+    },
+    {
+      "path": "scripts/deslop/normalize-punctuation.js",
+      "bytes": 13895,
+      "sha256": "65cf42c22ce9be727d4ead5af01d92cfcb8764a00d5e885f494ebde9ebfe2c1d"
+    },
+    {
+      "path": "scripts/deslop/style-whitelist.js",
+      "bytes": 1207,
+      "sha256": "860c678617969511143b5f4f3f4c3389175a03cb8eac157ac0bb1826706d1181"
+    },
+    {
+      "path": "scripts/deslop_bridge.py",
+      "bytes": 8982,
+      "sha256": "e56a53a75201bd04ac5140c1bdea8281b2861451b5708dbe540b067bccd43cf7"
+    },
+    {
+      "path": "scripts/lint.py",
+      "bytes": 18929,
+      "sha256": "e2b2b711f3f90a8995b9ccc365d78984bd48d3af1bdc63a9b57da810393e7da9"
+    }
+  ]
+}

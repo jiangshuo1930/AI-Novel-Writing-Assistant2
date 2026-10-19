@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "pnpm run dev:api",
     "dev:api": "node scripts/ensure-dev-prisma.cjs && node scripts/stop-stale-dev-server.cjs && ts-node-dev --respawn --transpile-only src/app.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/sepia-pack/copy-pack.cjs",
     "start": "node dist/app.js",
     "start:api": "node dist/app.js",
     "typecheck": "pnpm prisma:generate && tsc -p tsconfig.json --noEmit",
@@ -25,6 +25,8 @@
     "test:quality": "node scripts/quality/run-gate.cjs",
     "test": "pnpm --filter @ai-novel/shared build && pnpm run build && pnpm run test:node",
     "test:node": "node scripts/run-tests.cjs fast",
+    "sepia:pack": "node scripts/sepia-pack/copy-pack.cjs",
+    "sepia:parity": "node scripts/sepia-pack/parity-lint.cjs",
     "test:integration": "pnpm --filter @ai-novel/shared build && pnpm run build && node scripts/run-tests.cjs integration",
     "test:all": "pnpm run test && pnpm run test:integration",
     "test:planner": "pnpm --filter @ai-novel/shared build && pnpm run build && node --test tests/planner.test.js",
@@ -44,7 +46,10 @@
     "db:seed": "prisma db seed --config prisma.config.ts",
     "db:studio": "prisma studio --config prisma.config.ts",
     "db:restore": "node scripts/restore-dev-data.cjs",
-    "db:prune-snapshots": "node scripts/prune-snapshots.cjs"
+    "db:prune-snapshots": "node scripts/prune-snapshots.cjs",
+    "sepia:tsc": "node scripts/sepia-pack/tsc-sepia.cjs",
+    "sepia:parity:deslop": "node scripts/sepia-pack/parity-deslop.cjs",
+    "sepia:test": "node --test tests/sepiaGate.test.cjs tests/sepiaPack.test.cjs tests/sepiaAcceptance.test.cjs tests/sepiaRegression.test.cjs"
   },
   "dependencies": {
     "@ai-novel/shared": "workspace:*",

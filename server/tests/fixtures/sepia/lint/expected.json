@@ -1,0 +1,1627 @@
+{
+ "s01_short_body": {
+  "stats": {
+   "chars": 11,
+   "paras": 1,
+   "sents": 1
+  },
+  "items": [
+   {
+    "item": "正文",
+    "level": "err",
+    "detail": "只识别到 11 字正文，检查文件格式（正文需用空行分段）"
+   },
+   {
+    "item": "L1-1 破折号",
+    "level": "err",
+    "detail": "1 处（要求 0）"
+   }
+  ]
+ },
+ "s02_clean": {
+  "stats": {
+   "chars": 156,
+   "paras": 7,
+   "sents": 8
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "道具警惕项（不算硬伤）",
+    "level": "warn",
+    "detail": "旧报纸×1 · 出现两个以上要换掉一半，一个可留"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "ok",
+    "detail": "5.1/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "7 段 · 均 1.1 句 · 段长 14–37"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "ok",
+    "detail": "最长连续 0 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「天还没亮，巷子口的灯灭了一半。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「天还没亮，巷子口的灯灭了一半。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s03_dash": {
+  "stats": {
+   "chars": 136,
+   "paras": 8,
+   "sents": 8
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "err",
+    "detail": "2 处（要求 0）"
+   },
+   {
+    "item": "  ↳ 位置",
+    "level": "info",
+    "detail": "「他站起来——又坐下。」"
+   },
+   {
+    "item": "  ↳ 位置",
+    "level": "info",
+    "detail": "「他没抬头—只是把手按在纸上。」"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "道具警惕项（不算硬伤）",
+    "level": "warn",
+    "detail": "旧报纸×1 · 出现两个以上要换掉一半，一个可留"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "ok",
+    "detail": "5.9/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "8 段 · 均 1.0 句 · 段长 10–25"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "ok",
+    "detail": "最长连续 2 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「他站起来——又坐下。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「他站起来——又坐下。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s04_banned": {
+  "stats": {
+   "chars": 141,
+   "paras": 7,
+   "sents": 7
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "err",
+    "detail": "命中 3 处 / 扫描 153 条"
+   },
+   {
+    "item": "  ↳ 命中",
+    "level": "info",
+    "detail": "忽然 × 1"
+   },
+   {
+    "item": "  ↳ 命中",
+    "level": "info",
+    "detail": "空气仿佛凝固了 × 1"
+   },
+   {
+    "item": "  ↳ 命中",
+    "level": "info",
+    "detail": "难以名状 × 1"
+   },
+   {
+    "item": "道具警惕项（不算硬伤）",
+    "level": "warn",
+    "detail": "旧报纸×1 · 出现两个以上要换掉一半，一个可留"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "err",
+    "detail": "说不上来/难以形容 × 1"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "warn",
+    "detail": "5.0/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "7 段 · 均 1.0 句 · 段长 14–25"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "ok",
+    "detail": "最长连续 2 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「空气仿佛凝固了，他忽然觉得嗓子发紧。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「空气仿佛凝固了，他忽然觉得嗓子发紧。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s05_quotes": {
+  "stats": {
+   "chars": 140,
+   "paras": 8,
+   "sents": 9
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "道具警惕项（不算硬伤）",
+    "level": "warn",
+    "detail": "旧报纸×1 · 出现两个以上要换掉一半，一个可留"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "err",
+    "detail": "左“ 1 / 右” 1 · 直角「」 2 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "ok",
+    "detail": "6.4/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "8 段 · 均 1.1 句 · 段长 9–25"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "warn",
+    "detail": "最长连续 3 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "2%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「「你来了。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「「你来了。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s06_colon": {
+  "stats": {
+   "chars": 139,
+   "paras": 7,
+   "sents": 7
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "道具警惕项（不算硬伤）",
+    "level": "warn",
+    "detail": "旧报纸×1 · 出现两个以上要换掉一半，一个可留"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "warn",
+    "detail": "1 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "ok",
+    "detail": "5.0/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "7 段 · 均 1.0 句 · 段长 14–25"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "ok",
+    "detail": "最长连续 0 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「他说了三件事：一是不去，二是没钱，三是没人。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「他说了三件事：一是不去，二是没钱，三是没人。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s07_pattern_once": {
+  "stats": {
+   "chars": 152,
+   "paras": 8,
+   "sents": 8
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "道具警惕项（不算硬伤）",
+    "level": "warn",
+    "detail": "旧报纸×1 · 出现两个以上要换掉一半，一个可留"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "err",
+    "detail": "不是X，而是Y × 1"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "ok",
+    "detail": "5.3/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "8 段 · 均 1.0 句 · 段长 10–25"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "ok",
+    "detail": "最长连续 2 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「这不是害怕，而是冷。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「这不是害怕，而是冷。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s07_pattern_dense": {
+  "stats": {
+   "chars": 146,
+   "paras": 9,
+   "sents": 9
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "道具警惕项（不算硬伤）",
+    "level": "warn",
+    "detail": "旧报纸×1 · 出现两个以上要换掉一半，一个可留"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "err",
+    "detail": "不是X，而是Y × 3"
+   },
+   {
+    "item": "L1-9 不是X而是Y密度",
+    "level": "err",
+    "detail": "3 次（800 字内 ≥3 即硬伤）"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "ok",
+    "detail": "6.2/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "9 段 · 均 1.0 句 · 段长 10–25"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "warn",
+    "detail": "最长连续 3 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「这不是害怕，而是冷。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「这不是害怕，而是冷。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s08_low_period": {
+  "stats": {
+   "chars": 102,
+   "paras": 1,
+   "sents": 1
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "warn",
+    "detail": "0.0/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "1 段 · 均 1.0 句 · 段长 102–102"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "ok",
+    "detail": "最长连续 0 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "1 句 >55 字"
+   },
+   {
+    "item": "  ↳ 长句",
+    "level": "info",
+    "detail": "「他站在门口，看着院子里那辆倒在地上的旧自行车，车把歪向一边，辐条断了两根…」"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "warn",
+    "detail": "首句「他站在门口，看着院子里那辆倒在地上的旧自行车，车把歪向一边，」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「他站在门口，看着院子里那辆倒在地上的旧自行车，车把歪向一边，」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s09_uniform_paras": {
+  "stats": {
+   "chars": 110,
+   "paras": 10,
+   "sents": 10
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "warn",
+    "detail": "9.1/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "warn",
+    "detail": "10 段 · 均 1.0 句 · 段长 11–11 · 连续 4 段长度雷同 7 处"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "warn",
+    "detail": "最长连续 10 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「他把碗端起来，又放下。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「他把碗端起来，又放下。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s10_same_length": {
+  "stats": {
+   "chars": 121,
+   "paras": 10,
+   "sents": 10
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "err",
+    "detail": "命中 1 处 / 扫描 153 条"
+   },
+   {
+    "item": "  ↳ 命中",
+    "level": "info",
+    "detail": "轻轻 × 1"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "warn",
+    "detail": "8.3/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "warn",
+    "detail": "10 段 · 均 1.0 句 · 段长 11–13 · 连续 4 段长度雷同 7 处"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "warn",
+    "detail": "最长连续 10 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「他走进院子看见地上有水。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「他走进院子看见地上有水。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s11_long_sentences": {
+  "stats": {
+   "chars": 360,
+   "paras": 3,
+   "sents": 13
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "warn",
+    "detail": "3.3/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "3 段 · 均 4.3 句 · 段长 120–120"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "warn",
+    "detail": "最长连续 4 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「他把碗端起来，又放下，转身出了门，外头的天已经黑透了。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「他把碗端起来，又放下，转身出了门，外头的天已经黑透了。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s12_dialogue_low": {
+  "stats": {
+   "chars": 312,
+   "paras": 3,
+   "sents": 15
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 2 / 右” 2 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "warn",
+    "detail": "4.5/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "3 段 · 均 5.0 句 · 段长 4–300"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "warn",
+    "detail": "最长连续 11 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "3%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「“来了。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「“来了。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s12_dialogue_high": {
+  "stats": {
+   "chars": 126,
+   "paras": 10,
+   "sents": 11
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 10 / 右” 10 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "ok",
+    "detail": "7.1/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "warn",
+    "detail": "10 段 · 均 1.1 句 · 段长 10–15 · 连续 4 段长度雷同 7 处"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "warn",
+    "detail": "最长连续 6 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "warn",
+    "detail": "100%（>50% 读着像剧本，配比叙述）"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「“你来了，路上没遇见人吧。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「“你来了，路上没遇见人吧。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s13_opening": {
+  "stats": {
+   "chars": 140,
+   "paras": 8,
+   "sents": 8
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "道具警惕项（不算硬伤）",
+    "level": "warn",
+    "detail": "旧报纸×1 · 出现两个以上要换掉一半，一个可留"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "ok",
+    "detail": "5.7/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "8 段 · 均 1.0 句 · 段长 12–25"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "ok",
+    "detail": "最长连续 0 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "warn",
+    "detail": "首句「夜色像一块湿布蒙在屋顶上。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「夜色像一块湿布蒙在屋顶上。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s14_inner": {
+  "stats": {
+   "chars": 146,
+   "paras": 9,
+   "sents": 9
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "道具警惕项（不算硬伤）",
+    "level": "warn",
+    "detail": "旧报纸×1 · 出现两个以上要换掉一半，一个可留"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "warn",
+    "detail": "1 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "ok",
+    "detail": "6.2/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "9 段 · 均 1.0 句 · 段长 8–25"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "ok",
+    "detail": "最长连续 2 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「他知道那是假的。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「他知道那是假的。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "warn",
+    "detail": "3 处，需人工复核"
+   },
+   {
+    "item": "  ↳ 候选",
+    "level": "info",
+    "detail": "他知道那是"
+   },
+   {
+    "item": "  ↳ 候选",
+    "level": "info",
+    "detail": "她看出他是"
+   },
+   {
+    "item": "  ↳ 候选",
+    "level": "info",
+    "detail": "他明白了"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s15_replacement": {
+  "stats": {
+   "chars": 143,
+   "paras": 7,
+   "sents": 7
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "道具警惕项（不算硬伤）",
+    "level": "warn",
+    "detail": "旧报纸×1 · 出现两个以上要换掉一半，一个可留"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "warn",
+    "detail": "4.9/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "7 段 · 均 1.0 句 · 段长 14–31"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "ok",
+    "detail": "最长连续 2 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「他冷不丁回头，冷不丁又转回去，冷不丁笑了一下，冷不丁咳了一声」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「他冷不丁回头，冷不丁又转回去，冷不丁笑了一下，冷不丁咳了一声」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "warn",
+    "detail": "冷不丁×4"
+   }
+  ]
+ },
+ "s16_markdown": {
+  "stats": {
+   "chars": 200,
+   "paras": 1,
+   "sents": 8
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "warn",
+    "detail": "3.5/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "1 段 · 均 8.0 句 · 段长 200–200"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "warn",
+    "detail": "最长连续 7 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「他把碗端起来，又放下，转身出了门，外头的天已经黑透了。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「他把碗端起来，又放下，转身出了门，外头的天已经黑透了。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s17_section": {
+  "stats": {
+   "chars": 240,
+   "paras": 1,
+   "sents": 9
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 0 / 右” 0 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "warn",
+    "detail": "3.3/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "1 段 · 均 9.0 句 · 段长 240–240"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "warn",
+    "detail": "最长连续 9 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "0%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「他把碗端起来，又放下，转身出了门，外头的天已经黑透了。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「他把碗端起来，又放下，转身出了门，外头的天已经黑透了。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ },
+ "s18_real_chapter": {
+  "stats": {
+   "chars": 2723,
+   "paras": 111,
+   "sents": 197
+  },
+  "items": [
+   {
+    "item": "L1-1 破折号",
+    "level": "ok",
+    "detail": "0 处（要求 0）"
+   },
+   {
+    "item": "L1-2 禁用词",
+    "level": "ok",
+    "detail": "0 处（扫描 153 条）"
+   },
+   {
+    "item": "L1-5 引号",
+    "level": "ok",
+    "detail": "左“ 78 / 右” 78 · 直角「」 0 · 半角\" 0（要求：弯引号成对，其余 0）"
+   },
+   {
+    "item": "L1-6 冒号",
+    "level": "ok",
+    "detail": "0 处（尽量 0）"
+   },
+   {
+    "item": "L1-9 句式套子",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "L1-12 句号密度",
+    "level": "ok",
+    "detail": "7.1/百字（参考 5–8）"
+   },
+   {
+    "item": "段落参差",
+    "level": "ok",
+    "detail": "111 段 · 均 1.8 句 · 段长 4–107"
+   },
+   {
+    "item": "相邻同长句",
+    "level": "warn",
+    "detail": "最长连续 4 句长度接近（≥3 需打断）"
+   },
+   {
+    "item": "超长句",
+    "level": "ok",
+    "detail": "0 句 >55 字"
+   },
+   {
+    "item": "对话占比",
+    "level": "ok",
+    "detail": "31%"
+   },
+   {
+    "item": "L1-7 开篇比喻（候选）",
+    "level": "ok",
+    "detail": "首句「“小邵，三号那个，明早头炉。」"
+   },
+   {
+    "item": "L1-8 镜头式开场（候选）",
+    "level": "ok",
+    "detail": "首句「“小邵，三号那个，明早头炉。」"
+   },
+   {
+    "item": "L1-10 内心总结句（候选）",
+    "level": "ok",
+    "detail": "0 处"
+   },
+   {
+    "item": "替代词过载",
+    "level": "ok",
+    "detail": "无"
+   }
+  ]
+ }
+}

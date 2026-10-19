@@ -471,6 +471,31 @@ export const chapterCharacterHardFactSchema = z.object({
   pendingReviewFields: z.array(chapterCharacterPendingReviewFieldSchema).default([]),
 });
 
+/**
+ * sepia 生成期契约（对应合并方案 §7.5）
+ *
+ * 只带「本章要用的那点东西」：角色人设一句、3–5 招、架构表已定项、类型禁词 top-8。
+ * 全量规则约 110 KB，全量注入必死；这个块按 700 字预算构造。
+ */
+export const sepiaWritingContractSchema = z.object({
+  roleKey: z.string().default("general"),
+  roleName: z.string().default(""),
+  persona: z.string().default(""),
+  techniques: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        instruction: z.string().default(""),
+      }),
+    )
+    .default([]),
+  blueprintLines: z.array(z.string()).default([]),
+  bannedWords: z.array(z.string()).default([]),
+});
+
+export type SepiaWritingContract = z.infer<typeof sepiaWritingContractSchema>;
+
 export const chapterWriteContextSchema = z.object({
   bookContract: bookContractContextSchema,
   productionFoundationPrompt: z.string().default(""),
@@ -518,6 +543,7 @@ export const chapterWriteContextSchema = z.object({
   ragFacts: z.array(z.string()).default([]),
   completedMilestones: z.array(z.string()).default([]),
   recentScenePatterns: z.array(z.string()).default([]),
+  sepiaContract: sepiaWritingContractSchema.nullable().optional(),
 });
 
 export const chapterReviewContextSchema = chapterWriteContextSchema.extend({

@@ -13,6 +13,11 @@ import {
 } from "./artifactSync/ChapterArtifactSyncResult";
 import { detectForbiddenStyleEntities } from "../../styleEngine/styleGenerationSanitizer";
 import {
+  assertBlueprintGate,
+  BlueprintGateBlockedError,
+} from "../../sepia/blueprint/sepiaBlueprintGate";
+import { ensureChapterTechniques } from "../../sepia/techniques/ensureChapterTechniques";
+import {
   assertChapterContentNotEmpty,
   isChapterEmptyContentError,
   type ChapterEmptyContentError,
@@ -230,6 +235,36 @@ export async function runPipelineChapterWithRuntime(
 
   const assembled = await deps.assemble(novelId, chapterId, request);
   let content = assembled.chapter.content?.trim() ? assembled.chapter.content : "";
+
+  // sepia 生成前门：只在「这一章还没正文、要新写」时拦。已有正文走验收/修文，不受架构表约束。
+  if (!content.trim()) {
+    try {
+      await assertBlueprintGate({
+        novelId,
+        chapterId,
+        runtimeMode: artifactSyncPolicy === "director_v2" ? "autopilot" : "single",
+      });
+    } catch (error) {
+      if (error instanceof BlueprintGateBlockedError) throw error;
+      // 门自身出错（读库失败等）不阻断生成——门是加法，不能让主链路陪葬
+      console.warn("[sepia] blueprint gate unavailable", {
+        novelId,
+        chapterId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    // 技法选择落库（每章只写一次）；写不进去也不影响本次生成
+    try {
+      await ensureChapterTechniques({ novelId, chapterId, chapterOrder: assembled.chapter.order });
+    } catch (error) {
+      console.warn("[sepia] ensure techniques failed", {
+        novelId,
+        chapterId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   let retryCountUsed = 0;
   let latestResult: FinalizedRuntimeResult | null = null;
   let latestIssues: ReviewIssue[] = [];

@@ -170,6 +170,7 @@ export interface StoryMacroTabProps {
 }
 
 export interface OutlineTabViewProps {
+  novelId: string;
   worldInjectionSummary: string | null;
   hasCharacters: boolean;
   hasUnsavedVolumeDraft: boolean;

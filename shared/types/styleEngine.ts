@@ -196,6 +196,12 @@ export interface AntiAiRule {
   autoRewrite: boolean;
   enabled: boolean;
   globalBaselineEnabled: boolean;
+  /** 来源规则包 key（sepia 导入的规则才有，手写规则为 null） */
+  packKey?: string | null;
+  /** 导入时的规则包版本；与当前包版本不一致即"可升级" */
+  packVersion?: string | null;
+  /** 包内分组，对应 banned-words.md 的节标题 */
+  ruleGroup?: string | null;
   createdAt: string;
   updatedAt: string;
 }

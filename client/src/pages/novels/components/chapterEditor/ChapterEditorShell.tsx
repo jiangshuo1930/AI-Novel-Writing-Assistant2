@@ -127,6 +127,8 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
   const [revisionInstruction, setRevisionInstruction] = useState("");
   const [selectedDiagnosticId, setSelectedDiagnosticId] = useState<string | null>(null);
   const [focusRequestKey, setFocusRequestKey] = useState(0);
+  /** 机械门报告项的定位区间：与 AI 问题卡分开存，互不覆盖语义 */
+  const [sepiaFocusRange, setSepiaFocusRange] = useState<{ from: number; to: number } | null>(null);
   const [isVersionDrawerOpen, setIsVersionDrawerOpen] = useState(false);
   const [loadedSnapshotId, setLoadedSnapshotId] = useState<string | null>(null);
 
@@ -642,9 +644,20 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
       return;
     }
     setSelectedDiagnosticId(card.id);
+    setSepiaFocusRange(null);
     setRevisionScope(card.recommendedScope);
     setSelection(null);
     setCursorOffset(null);
+  };
+
+  /** 机械门定位：只高亮正文，不触发任何 AI 动作，也不改 revisionScope */
+  const handleFocusSepiaRange = (range: { from: number; to: number }) => {
+    if (session.status !== "idle") return;
+    setSelection(null);
+    setCursorOffset(null);
+    setSelectedDiagnosticId(null);
+    setSepiaFocusRange({ from: range.from, to: range.to });
+    setFocusRequestKey((current) => current + 1);
   };
 
   const handleRunDiagnostic = (card: ChapterEditorDiagnosticCard) => {
@@ -740,6 +753,8 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
             isDirty={isDirty}
             isSaving={saveMutation.isPending}
             selectedDiagnosticId={selectedDiagnosticId}
+            chapterContent={contentDraft}
+            onFocusSepiaRange={handleFocusSepiaRange}
             onBack={onBack ? () => leaveEditor(onBack) : undefined}
             backLabel={props.backLabel}
             onOpenChapterVersions={() => setIsVersionDrawerOpen(true)}
@@ -774,6 +789,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
                 setFocusRequestKey(0);
                 setCursorOffset(null);
                 setSelectedDiagnosticId(null);
+                setSepiaFocusRange(null);
               }
             }}
             onCursorChange={(offset) => {
@@ -783,6 +799,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
                 setFocusRequestKey(0);
                 setSelection(null);
                 setSelectedDiagnosticId(null);
+                setSepiaFocusRange(null);
               }
             }}
             preview={previewPayload}
@@ -790,7 +807,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
             focusRange={session.status === "idle"
               ? selection
                 ? { from: selection.from, to: selection.to }
-                : selectedDiagnosticCard?.anchorRange ?? null
+                : selectedDiagnosticCard?.anchorRange ?? sepiaFocusRange
               : null}
           />
         </div>

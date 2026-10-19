@@ -3,6 +3,57 @@ const path = require("node:path");
 const vm = require("node:vm");
 const ts = require("typescript");
 
+/**
+ * sepia 是加法功能：机械门、生成前门、技法选择、写作契约都不改变"生成/验收/修复/预算"
+ * 这条主链路的语义。这些测试写于合并之前，主语是预算、租约、产物同步，被 sepia 拉进来
+ * 的依赖不该让它们连加载都失败。
+ *
+ * 所以给这四个模块配**中立替身**（门永远放行、不选技法、不产出契约），而不是把真实实现
+ * 放进来——真实实现会去连库、起 python 子进程，正好违反本 harness"只允许显式替身跨边界"
+ * 的初衷。sepia 自身的判定由 `server/tests/sepia*.test.cjs` 与
+ * `server/scripts/sepia-chain-smoke.cjs` 覆盖，不靠这里。
+ *
+ * 注意：仍然是白名单，未列出的 id 一律抛错——新增依赖时这里必须显式补，不许静默放行。
+ */
+const SEPIA_DOUBLES = {
+  "../../sepia/acceptance/sepiaAcceptance": {
+    applySepiaGate: async (assessment) => ({ assessment, report: null, degraded: false }),
+    mergeSepiaIntoAssessment: (assessment) => assessment,
+    classifyFixClass: () => "patch",
+    issueCodeOf: (finding) => finding.checkId,
+    toAcceptanceIssues: () => [],
+    toRepairDirectives: () => [],
+    isDistributionOnly: () => false,
+    SEPIA_BLOCKING_TAG: "sepia_blocking",
+    SEPIA_ADVISORY_TAG: "sepia_advisory",
+    SEPIA_UNAVAILABLE_TAG: "sepia_gate_unavailable",
+  },
+  "../../sepia/blueprint/sepiaBlueprintGate": {
+    assertBlueprintGate: async () => ({
+      blocked: false, mode: "write", runtimeMode: "single", blueprintMissing: true,
+      blockedCount: 0, warningCount: 0, gaps: [], reason: "",
+    }),
+    evaluateBlueprintGate: async () => ({
+      blocked: false, mode: "write", runtimeMode: "single", blueprintMissing: true,
+      blockedCount: 0, warningCount: 0, gaps: [], reason: "",
+    }),
+    decideBlueprintGate: () => ({
+      blocked: false, mode: "write", runtimeMode: "single", blueprintMissing: true,
+      blockedCount: 0, warningCount: 0, gaps: [], reason: "",
+    }),
+    BlueprintGateBlockedError: class BlueprintGateBlockedError extends Error {
+      constructor(message, gaps) { super(message); this.name = "BlueprintGateBlockedError"; this.gaps = gaps ?? []; }
+    },
+  },
+  "../../sepia/techniques/ensureChapterTechniques": {
+    ensureChapterTechniques: async () => null,
+  },
+  "../../sepia/contract/buildSepiaContract": {
+    buildSepiaWritingContract: () => null,
+    renderSepiaContractText: () => "",
+  },
+};
+
 // Only explicit doubles can cross the module boundary: no production DB or LLM imports.
 function loadRuntimeSource(filename, imports) {
   const sourcePath = path.resolve(__dirname, "../../src/services/novel/runtime", filename);
@@ -15,8 +66,9 @@ function loadRuntimeSource(filename, imports) {
     `(function(require, exports) {\n${source}\n})`, { filename: sourcePath },
   );
   evaluate((id) => {
-    if (!Object.hasOwn(imports, id)) throw new Error(`Unmocked production dependency: ${id}`);
-    return imports[id];
+    if (Object.hasOwn(imports, id)) return imports[id];
+    if (Object.hasOwn(SEPIA_DOUBLES, id)) return SEPIA_DOUBLES[id];
+    throw new Error(`Unmocked production dependency: ${id}`);
   }, exports);
   return exports;
 }

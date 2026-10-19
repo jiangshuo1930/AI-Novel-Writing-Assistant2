@@ -342,6 +342,10 @@ export function mapAntiAiRuleRow(row: {
   autoRewrite: boolean;
   enabled: boolean;
   globalBaselineEnabled: boolean;
+  /** sepia 导入的规则才带；手写规则没有来源，保持 undefined/null 而不是空串 */
+  packKey?: string | null;
+  packVersion?: string | null;
+  ruleGroup?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): AntiAiRule {
@@ -358,6 +362,9 @@ export function mapAntiAiRuleRow(row: {
     autoRewrite: row.autoRewrite,
     enabled: row.enabled,
     globalBaselineEnabled: row.globalBaselineEnabled,
+    packKey: row.packKey ?? null,
+    packVersion: row.packVersion ?? null,
+    ruleGroup: row.ruleGroup ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

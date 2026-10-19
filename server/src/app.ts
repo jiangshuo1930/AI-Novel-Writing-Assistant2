@@ -42,6 +42,7 @@ import promptWorkbenchRouter from "./routes/promptWorkbench";
 import ragRouter from "./routes/rag";
 import settingsAutoDirectorRouter from "./routes/settingsAutoDirector";
 import settingsRouter from "./routes/settings";
+import sepiaRouter from "./routes/sepia";
 import styleEngineRouter from "./routes/styleEngine";
 import styleEngineExtractionRouter from "./routes/styleEngineExtraction";
 import storyModeRouter from "./routes/storyMode";
@@ -140,6 +141,7 @@ export function createApp() {
   app.use("/api/llm", llmRouter);
   app.use("/api/llm-live", llmLiveRouter);
   app.use("/api/title-library", titleLibraryRouter);
+  app.use("/api/sepia", sepiaRouter);
   app.use("/api", styleEngineRouter);
   app.use("/api", styleEngineExtractionRouter);
   const directorNextEnabled = parseEnvFlag(process.env.DIRECTOR_NEXT_ENABLED, true);

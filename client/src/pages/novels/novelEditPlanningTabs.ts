@@ -203,6 +203,7 @@ export function buildNovelEditPlanningTabs(input: BuildNovelEditPlanningTabsInpu
   };
 
   const outlineTab: OutlineTabViewProps = {
+    novelId: input.id,
     worldInjectionSummary: input.worldInjectionSummary,
     hasCharacters: input.hasCharacters,
     hasUnsavedVolumeDraft: input.hasUnsavedVolumeDraft,
@@ -260,9 +261,10 @@ export function buildNovelEditPlanningTabs(input: BuildNovelEditPlanningTabsInpu
   };
 
   const structuredTab: StructuredTabViewProps = {
-    novelId: input.id,
     directorTakeoverEntry: input.structuredDirectorTakeoverEntry,
     ...outlineTab,
+    // outlineTab 现在也带 novelId；显式写在 spread 之后，顺手把它钉成这条 tab 的语义
+    novelId: input.id,
     beatSheets: input.beatSheets,
     rebalanceDecisions: input.rebalanceDecisions,
     draftText: input.structuredDraftText,

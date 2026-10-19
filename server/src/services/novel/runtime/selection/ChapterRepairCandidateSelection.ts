@@ -20,13 +20,40 @@ export interface ChapterRepairSelectionRecord {
     | "candidate_improved"
     | "original_retained_new_severe_issue"
     | "original_retained_obligation_regression"
+    | "original_retained_sepia_regression"
     | "original_retained_no_clear_improvement"
     | "original_retained_unverified_review";
   reason: string;
+  /** 只在 sepia 机械项变差时出现，供 UI / 日志直接取用，不必再匹配 reasonCode */
+  rollbackReason?: "sepia_regression";
   originalContentHash: string;
   candidateContentHash: string;
   originalScore: number;
   candidateScore: number;
+}
+
+/** 与 sepia 转译层写进 riskTags 的前缀一致（`sepia_blocking:<n>`） */
+const SEPIA_BLOCKING_PREFIX = "sepia_blocking";
+
+/**
+ * 从 riskTags 读 sepia 的**真实** blocking 条数。
+ *
+ * 不能数 `blockingIssues` 里 SEPIA_ 开头的条目：那个数组被验收层封顶到 5 条，
+ * 5 条与 9 条看不出差别，回滚判定会失效。所以条数由标签携带。
+ * 兼容早期不带数字的 `sepia_blocking`（按 1 条算）。
+ */
+export function readSepiaBlockingCount(runtimePackage: ChapterRuntimePackage): number {
+  let count = 0;
+  for (const tag of runtimePackage.meta?.riskTags ?? []) {
+    if (tag === SEPIA_BLOCKING_PREFIX) {
+      count = Math.max(count, 1);
+      continue;
+    }
+    if (!tag.startsWith(`${SEPIA_BLOCKING_PREFIX}:`)) continue;
+    const parsed = Number.parseInt(tag.slice(SEPIA_BLOCKING_PREFIX.length + 1), 10);
+    if (Number.isFinite(parsed)) count = Math.max(count, parsed);
+  }
+  return count;
 }
 
 export function selectChapterRepairCandidate(input: {
@@ -76,6 +103,20 @@ export function selectChapterRepairCandidate(input: {
       selected: "original",
       reasonCode: "original_retained_obligation_regression",
       reason: "修复候选新增或扩大了未兑现章节义务，因此保留原稿。",
+    };
+  }
+
+  // sepia 复跑回滚：机械项只增不减，说明这次修文把可量化的毛病改多了。
+  // 放在 candidate_passed 之前——候选即便"通过"了 LLM 验收，机械门变差也不算改善。
+  const originalSepiaBlocking = readSepiaBlockingCount(input.original.runtimePackage);
+  const candidateSepiaBlocking = readSepiaBlockingCount(input.candidate.runtimePackage);
+  if (candidateSepiaBlocking > originalSepiaBlocking) {
+    return {
+      ...base,
+      selected: "original",
+      reasonCode: "original_retained_sepia_regression",
+      rollbackReason: "sepia_regression",
+      reason: `修复候选使 sepia 机械项由 ${originalSepiaBlocking} 条增至 ${candidateSepiaBlocking} 条，按复跑纪律回滚原稿。`,
     };
   }
 

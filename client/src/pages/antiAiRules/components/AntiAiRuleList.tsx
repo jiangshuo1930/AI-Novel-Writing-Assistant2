@@ -86,6 +86,16 @@ export default function AntiAiRuleList(props: AntiAiRuleListProps) {
                 <div className="min-w-0 flex-1 basis-48">
                   <h3 className="break-words text-base font-semibold leading-6">{rule.name}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">{typeLabels[rule.type]} · 提醒级别：{severityLabels[rule.severity]}</p>
+                  {rule.packKey ? (
+                    <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
+                        规则包 · {rule.ruleGroup || rule.packKey}
+                      </span>
+                      {rule.packVersion ? (
+                        <span className="text-muted-foreground">v{rule.packVersion}</span>
+                      ) : null}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button type="button" variant="ghost" size="sm" aria-pressed={isTesting}

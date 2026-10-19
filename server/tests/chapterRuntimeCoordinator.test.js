@@ -1,3 +1,9 @@
+// 本文件测的是"验收 → 定稿 → 时间线/产物同步"的调用次数与顺序，正文用占位串。
+// sepia 机械门会真的起 python 子进程（约 230ms），既会把占位正文判成 body-too-short
+// 从而把定稿模式降级，也会打穿下面 `duration < 160ms` 的时延断言。
+// sepia 自身的判定由 tests/sepia*.test.cjs 与 scripts/sepia-chain-smoke.cjs 覆盖，这里必须关掉。
+process.env.SEPIA_DISABLED = "1";
+
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const promptRunner = require("../dist/prompting/core/promptRunner.js");

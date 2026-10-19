@@ -1,5 +1,6 @@
 import type { GenerationContextPackage } from "@ai-novel/shared/types/chapterRuntime";
 import { prisma } from "../../../db/prisma";
+import { applySepiaGate } from "../../sepia/acceptance/sepiaAcceptance";
 import {
   ChapterAcceptanceAssessmentService,
   type ChapterAcceptanceAssessmentInput,
@@ -69,14 +70,27 @@ export class ChapterQualityGateService {
       const result = requestKey
         ? await this.loadAssessment(assessmentInput, { contentHash, requestKey })
         : await this.service.assess(assessmentInput);
+      // sepia 机械门接在验收之后：LLM 验收给语义判定，机械门给确定性判定。
+      // 必须放在缓存读取之后——缓存键是 contentHash，不含 packVersion。
+      const gated = await applySepiaGate(result.assessment, input.content);
+      const gatedResult: ChapterAcceptanceAssessmentResult = gated.degraded
+        || gated.report !== null
+        ? { ...result, assessment: gated.assessment }
+        : result;
       console.info("[chapter-runtime-trace]", {
         novelId: input.novelId, chapterId: input.chapterId, chapterOrder: assessmentInput.chapterOrder,
         stage: "acceptance", blocking: true, attemptNo: 1, retryReason: null,
         contentHash, durationMs: Date.now() - startedAt,
         promptAssetKey: "novel.chapter.acceptance_assessment",
-        status: result.assessment.riskTags.some(tag => tag === "acceptance_gate_unavailable" || tag === "style_review_unavailable") ? "degraded" : "succeeded",
+        status: gatedResult.assessment.riskTags.some(tag => tag === "acceptance_gate_unavailable" || tag === "style_review_unavailable" || tag === "sepia_gate_unavailable") ? "degraded" : "succeeded",
+        sepia: {
+          blocking: gated.report?.blockingCount ?? null,
+          advisory: gated.report?.advisoryCount ?? null,
+          deslop: gated.report?.deslop ?? null,
+          degraded: gated.degraded,
+        },
       });
-      return result;
+      return gatedResult;
     } catch (error) {
       console.warn("[chapter-runtime-trace]", {
         novelId: input.novelId, chapterId: input.chapterId, chapterOrder: assessmentInput.chapterOrder,
