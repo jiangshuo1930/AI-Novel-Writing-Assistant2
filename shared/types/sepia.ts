@@ -261,5 +261,108 @@ export interface SepiaVolumeDiagnostics {
     count: number;
     items: Array<{ title: string; status: string; lastTouchedOrder: number | null }>;
   };
+  /** 第 2 层篇章：discourse-pass.md 位置表的两项机械近似（0.5.1 之后才有） */
+  discourse: {
+    paragraphRhythm: SepiaDerivedValue<{ paragraphs: number; evenRun: number; shortRatio: number }>;
+    dialoguePlacement: SepiaDerivedValue<{ dialogueParagraphs: number; tailRatio: number }>;
+    notes: string[];
+  };
+  /** 体检表轮转（rubric.md「一次只看一组」） */
+  diagnosis: {
+    groupKey: string;
+    title: string;
+    items: Array<{ item: string; detect: string; good: string; fix: string }>;
+    note: string;
+  } | null;
+  /** 第 0 层台账：6 节字段在 ANA 里的落点 */
+  stateLedger: {
+    sections: Array<{ key: string; title: string; mappedTo: string | null }>;
+    mapped: number;
+    total: number;
+    note: string;
+  };
   notes: string[];
+}
+
+/**
+ * 结构自检结论（rubric 五组 + selfcheck L2–L4 的 LLM 终审）
+ *
+ * 与机械门的区别要说清楚，否则两套"通过"会互相冒充：
+ *   - 机械门：确定性脚本，`blocking` 是 L1 硬伤条数，**必须清零**；
+ *   - 结构自检：LLM 判定，`blocking` 是 selfcheck 的 L2 / L3-1 / L3-2 / L4 未过项。
+ *     其中 L2 / L3-1 / L3-2 / L4 属交付前必须过；rubric 五组只是诊断表，
+ *     记 `advisory`，不阻断——把诊断表当门槛会让每章都卡死。
+ */
+export type SepiaSelfCheckVerdict = "pass" | "fail" | "na" | "over_corrected";
+
+export interface SepiaSelfCheckItemResult {
+  /** 表项名，如「主题点题」或 `L2-1 开头` */
+  item: string;
+  verdict: SepiaSelfCheckVerdict;
+  /** fail / over_corrected 必填：连续原文片段，≤60 字 */
+  evidence: string;
+  /** 一句话改法；pass 时为空 */
+  fix: string;
+}
+
+export interface SepiaSelfCheckGroupResult {
+  /** `group-1`…`group-5` 或 `L2` / `L3` / `L4` */
+  key: string;
+  title: string;
+  verdict: "pass" | "fail";
+  items: SepiaSelfCheckItemResult[];
+}
+
+export interface SepiaStructuralSelfCheckRecord {
+  schemaVersion: 1;
+  verdict: "pass" | "fail" | "unavailable";
+  /** rubric.md 五组：诊断用，不阻断 */
+  diagnosis: {
+    groups: SepiaSelfCheckGroupResult[];
+    failed: number;
+    overCorrected: number;
+  };
+  /** selfcheck.md L2–L4：L2 / L3-1 / L3-2 / L4 不过即阻断 */
+  levels: {
+    groups: SepiaSelfCheckGroupResult[];
+    failed: number;
+  };
+  /** 阻断项（levels 里的 fail） */
+  blocking: SepiaSelfCheckItemResult[];
+  /** 诊断项（rubric 五组的 fail / over_corrected） */
+  advisory: SepiaSelfCheckItemResult[];
+  summary: string;
+  packVersion: string;
+  model: string;
+  /** 正文指纹：与同章当前正文对比即可判断这条结论是否过期 */
+  contentHash: string;
+  checkedAt: string;
+}
+
+/** 门结论（Chapter.sepiaGateStatus） */
+export interface SepiaGateStatusRecord {
+  schemaVersion: 1;
+  verdict: "passed" | "blocked" | "unavailable";
+  blocking: number;
+  advisory: number;
+  deslop: string;
+  packVersion: string;
+  contentHash: string;
+  checkedAt: string;
+  /** 结构自检结论（0.5.1 之后才有）；门通过后才会跑。只存计数，明细在自检报告里 */
+  selfCheck?: {
+    verdict: "pass" | "fail" | "unavailable";
+    blocking: number;
+    advisory: number;
+    summary: string;
+    checkedAt: string;
+  };
+}
+
+/** 自检口径（selfcheck.md 的结构化视图）：L1 已自动化，这里只给 L2–L4 与误伤警告 */
+export interface SepiaSelfCheckView {
+  levels: Array<{ key: string; title: string; items: string[] }>;
+  falsePositiveWarnings: Array<{ feature: string; threshold: string; note: string }>;
+  passCriteria: string[];
+  packVersion: string;
 }

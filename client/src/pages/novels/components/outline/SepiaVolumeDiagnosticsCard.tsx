@@ -175,6 +175,58 @@ export default function SepiaVolumeDiagnosticsCard({ novelId, chapterOrders, vol
             </div>
 
             <div className="space-y-1">
+              <div className="text-xs font-medium">篇章指标（第 2 层）</div>
+              {data.discourse.paragraphRhythm.source === "derived" && data.discourse.paragraphRhythm.value ? (
+                <p className="text-xs leading-5 text-muted-foreground">
+                  段落 {data.discourse.paragraphRhythm.value.paragraphs} 段 · 最长连续同长{" "}
+                  {data.discourse.paragraphRhythm.value.evenRun} 段 · 短段占比{" "}
+                  {Math.round(data.discourse.paragraphRhythm.value.shortRatio * 100)}%
+                  {data.discourse.paragraphRhythm.value.evenRun >= 3 ? "（≥3 需打断）" : ""}
+                </p>
+              ) : (
+                <p className="text-xs leading-5 text-muted-foreground">{data.discourse.paragraphRhythm.note}</p>
+              )}
+              {data.discourse.dialoguePlacement.source === "derived" && data.discourse.dialoguePlacement.value ? (
+                <p className="text-xs leading-5 text-muted-foreground">
+                  对话段 {data.discourse.dialoguePlacement.value.dialogueParagraphs} 段 · 引号收在段尾{" "}
+                  {Math.round(data.discourse.dialoguePlacement.value.tailRatio * 100)}%
+                  {data.discourse.dialoguePlacement.value.tailRatio >= 0.8 ? "（总在段末）" : ""}
+                </p>
+              ) : (
+                <p className="text-xs leading-5 text-muted-foreground">{data.discourse.dialoguePlacement.note}</p>
+              )}
+            </div>
+
+            {data.diagnosis ? (
+              <div className="space-y-1 rounded-lg bg-muted/30 px-2.5 py-2">
+                <div className="text-xs font-medium">体检组 · {data.diagnosis.title}</div>
+                <ul className="space-y-1">
+                  {data.diagnosis.items.map((item) => (
+                    <li key={item.item} className="text-xs leading-5 text-muted-foreground">
+                      · <span className="text-foreground">{item.item}</span>：{item.detect}
+                      {item.fix ? ` → ${item.fix}` : ""}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[11px] leading-4 text-muted-foreground">{data.diagnosis.note}</p>
+              </div>
+            ) : null}
+
+            <div className="space-y-1">
+              <div className="text-xs font-medium">
+                台账覆盖 {data.stateLedger.mapped}/{data.stateLedger.total} 节
+              </div>
+              <ul className="space-y-1">
+                {data.stateLedger.sections.map((section) => (
+                  <li key={section.key} className="text-xs leading-5 text-muted-foreground">
+                    · {section.title}：
+                    {section.mappedTo ?? <span className="text-amber-900">无对应字段</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="space-y-1">
               <div className="text-xs font-medium">悬着的伏笔 {data.orphanForeshadows.count}</div>
               {data.orphanForeshadows.count === 0 ? (
                 <p className="text-xs leading-5 text-muted-foreground">没有久未触碰的伏笔。</p>

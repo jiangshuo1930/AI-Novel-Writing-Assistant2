@@ -9,6 +9,7 @@
  */
 
 import { prisma } from "../../../db/prisma";
+import { getSepiaPack } from "../pack";
 
 export type HookType = "危" | "疑" | "变" | "求" | "断" | "静" | "unknown";
 
@@ -39,6 +40,26 @@ export interface VolumeDiagnostics {
   peakPositions: DerivedValue<number[]>;
   repeatedSkeleton: DerivedValue<string[]>;
   orphanForeshadows: { count: number; items: Array<{ title: string; status: string; lastTouchedOrder: number | null }> };
+  /** 第 2 层篇章：discourse-pass.md 位置表里两项可机械近似的指标 */
+  discourse: {
+    paragraphRhythm: DerivedValue<{ paragraphs: number; evenRun: number; shortRatio: number }>;
+    dialoguePlacement: DerivedValue<{ dialogueParagraphs: number; tailRatio: number }>;
+    notes: string[];
+  };
+  /** 体检表轮转：按最新章号取一组（rubric.md「一次只看一组」） */
+  diagnosis: {
+    groupKey: string;
+    title: string;
+    items: Array<{ item: string; detect: string; good: string; fix: string }>;
+    note: string;
+  } | null;
+  /** 第 0 层台账：6 节字段在 ANA 里的落点，缺的明说 */
+  stateLedger: {
+    sections: Array<{ key: string; title: string; mappedTo: string | null }>;
+    mapped: number;
+    total: number;
+    note: string;
+  };
   notes: string[];
 }
 
@@ -158,6 +179,106 @@ const CHAPTER_SIGNAL_SELECT = {
   content: true,
 } as const;
 
+/** 段落参差：连续段长度差在 20% 以内算「一样长」，≥3 段就是 discourse-pass 说的「差不多长」 */
+export function computeParagraphRhythm(contents: string[]): VolumeDiagnostics["discourse"]["paragraphRhythm"] {
+  const lengths: number[] = [];
+  for (const content of contents) {
+    for (const para of (content ?? "").split(/\n\s*\n/)) {
+      const text = para.trim();
+      if (text) lengths.push(text.length);
+    }
+  }
+  if (lengths.length < 3) {
+    return { value: null, source: "unavailable", note: "正文段落不足 3 段，判不出参差。" };
+  }
+  let longest = 1;
+  let run = 1;
+  for (let index = 1; index < lengths.length; index += 1) {
+    const prev = lengths[index - 1];
+    const current = lengths[index];
+    const base = Math.max(prev, current, 1);
+    if (Math.abs(current - prev) / base <= 0.2) {
+      run += 1;
+      if (run > longest) longest = run;
+    } else {
+      run = 1;
+    }
+  }
+  const shortRatio = lengths.filter((length) => length <= 40).length / lengths.length;
+  return {
+    value: { paragraphs: lengths.length, evenRun: longest, shortRatio: Number(shortRatio.toFixed(2)) },
+    source: "derived",
+    note: "evenRun ≥3 表示连着三段差不多长；shortRatio 是 40 字以内短段占比。",
+  };
+}
+
+/** 对话位置：discourse-pass 说「总在段末」是机器习惯，真人段中也有 */
+export function computeDialoguePlacement(contents: string[]): VolumeDiagnostics["discourse"]["dialoguePlacement"] {
+  let dialogueParagraphs = 0;
+  let tailDialogue = 0;
+  for (const content of contents) {
+    for (const para of (content ?? "").split(/\n\s*\n/)) {
+      const text = para.trim();
+      if (!text) continue;
+      if (!/[“”「」"]/.test(text)) continue;
+      dialogueParagraphs += 1;
+      if (/[”」"]$/.test(text)) tailDialogue += 1;
+    }
+  }
+  if (dialogueParagraphs < 3) {
+    return { value: null, source: "unavailable", note: "含对话的段落不足 3 段，判不出位置分布。" };
+  }
+  return {
+    value: { dialogueParagraphs, tailRatio: Number((tailDialogue / dialogueParagraphs).toFixed(2)) },
+    source: "derived",
+    note: "tailRatio 是「引号收在段尾」的对话段占比；接近 1 说明对话总压在段末。",
+  };
+}
+
+/** 台账 6 节 → ANA 现有字段；没有对应字段的写 null，不假装已覆盖 */
+const LEDGER_MAPPING: ReadonlyArray<readonly [string, string]> = [
+  ["一、", "worldState.locations + timeline"],
+  ["二、", "characters[].resources（欠/被欠无对应字段）"],
+  ["三、", "characters[].currentState / emotion / knownFacts"],
+  ["四、", "narrative.pendingPayoffs"],
+  ["五、", "narrative.suspenseThreads"],
+  ["六、", "无对应字段（正文细节未入 CanonicalState）"],
+];
+
+export function buildStateLedgerCoverage(pack: {
+  stateLedger?: Array<{ key: string; title: string }>;
+}): VolumeDiagnostics["stateLedger"] {
+  const sections = (pack.stateLedger ?? []).map((section) => {
+    const hit = LEDGER_MAPPING.find(([prefix]) => section.title.startsWith(prefix));
+    const mappedTo = hit && !hit[1].startsWith("无对应字段") ? hit[1] : null;
+    return { key: section.key, title: section.title, mappedTo };
+  });
+  const mapped = sections.filter((section) => section.mappedTo).length;
+  return {
+    sections,
+    mapped,
+    total: sections.length,
+    note: "台账不另建表：能对应上的按 ANA 字段读，对应不上的标 null，避免两套台账互相打脸。",
+  };
+}
+
+/** 体检表轮转：一次只看一组，按最新章号推进 */
+export function pickDiagnosisGroup(
+  pack: { diagnosis?: { groups: Array<{ key: string; title: string; items: Array<{ item: string; detect: string; good: string; fix: string }> }> } },
+  latestOrder: number,
+): VolumeDiagnostics["diagnosis"] {
+  const groups = pack.diagnosis?.groups ?? [];
+  if (groups.length === 0) return null;
+  const index = Math.abs(Math.max(latestOrder, 1) - 1) % groups.length;
+  const group = groups[index];
+  return {
+    groupKey: group.key,
+    title: group.title,
+    items: group.items,
+    note: `按章号轮转（共 ${groups.length} 组，当前第 ${index + 1} 组）；rubric.md 要求一次只看一组。`,
+  };
+}
+
 type ChapterSignalRow = {
   order: number;
   title: string;
@@ -205,7 +326,17 @@ async function buildDiagnostics(
   const notes = [
     "钩子标签由 Chapter.hook 文本按 arc-pass.md 的例子做关键词近似，命中不了记 unknown，不硬猜。",
     "强度由 Chapter.conflictLevel 映射（≤2→一星、3→二星、≥4→三星），不是人工标注。",
+    "篇章指标来自 discourse-pass.md 的位置表，只做机械近似，不构成通过线。",
   ];
+
+  // 规则包不可用时诊断照样要出：这两块是附加信息，不能把它们变成新的单点故障。
+  let packData: ReturnType<typeof getSepiaPack>["data"] | null = null;
+  try {
+    packData = getSepiaPack().data;
+  } catch {
+    packData = null;
+  }
+  const contents = ordered.map((chapter) => chapter.content ?? "");
 
   return {
     novelId,
@@ -215,6 +346,18 @@ async function buildDiagnostics(
     repeatedHook: findRepeatedHook(signals),
     intensityWave: signals.map((item) => item.intensity),
     intensityIssues: findIntensityIssues(signals.map((item) => item.intensity)),
+    discourse: {
+      paragraphRhythm: computeParagraphRhythm(contents),
+      dialoguePlacement: computeDialoguePlacement(contents),
+      notes: [
+        "段落参差与对话位置都只在这几章的正文字面上算，不看语义。",
+        "数值只作提示：discourse-pass.md 明确这是判断层，没有通过线。",
+      ],
+    },
+    diagnosis: packData ? pickDiagnosisGroup(packData, maxOrder) : null,
+    stateLedger: packData
+      ? buildStateLedgerCoverage(packData)
+      : { sections: [], mapped: 0, total: 0, note: "规则包不可用，读不到台账模板。" },
     peakPositions: {
       value: null,
       source: "unavailable",

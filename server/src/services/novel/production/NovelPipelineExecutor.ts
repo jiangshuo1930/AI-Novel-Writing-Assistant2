@@ -56,6 +56,17 @@ import {
 } from "../pipelineJobState";
 
 const PIPELINE_HEARTBEAT_INTERVAL_MS = 15000;
+/**
+ * sepia 专项门在普通章节重试预算之外额外允许的轮数。
+ *
+ * 对应原版 SKILL.md 的「lint.py 复跑，FAIL 清零」：清洗机械项是收敛过程，
+ * 不是一次重试。上限保持很小（2 轮，加上原预算通常共 3 轮），用尽即停。
+ *
+ * 结构自检（L2/L3-1/L3-2/L4）**共用**这份额度，不另开一份：
+ * 两级门是同一条收敛链上的前后两段，各自 2 轮会变成 4 轮，而每轮都是一次
+ * 验收 + 一次自检调用。共用额度才是原版「复跑到全过」的成本上限。
+ */
+const SEPIA_MECHANICAL_EXTRA_ROUNDS = 2;
 
 class PipelineIssueAppliedError extends Error {
   constructor(
@@ -641,9 +652,26 @@ export class NovelPipelineExecutor {
             issueGovernance?.policy.maxAutomaticRetries ?? maxRetries);
           let chapterRetryCountUsed = 0;
           let previouslyConsumed = 0;
-          const claimAttempt = async (kind: "quality_repair" | "runtime_retry") => {
+          /**
+           * 机械项清算轮次。
+           *
+           * sepia 的「FAIL 必须清零」需要复跑到清零，而普通章节重试预算通常只有 1。
+           * 这里给机械项单独 2 轮额度（合计最多 3 轮修文），不挤占其他质量修复的预算；
+           * 用尽后照样停，不会无限追。
+           */
+          let sepiaMechanicalRoundsUsed = 0;
+          const claimAttempt = async (
+            kind: "quality_repair" | "runtime_retry",
+            details?: { mechanicalOnly?: boolean },
+          ) => {
             await checkCancelled();
-            if (chapterRetryCountUsed >= chapterRetryBudget) return false;
+            if (chapterRetryCountUsed >= chapterRetryBudget) {
+              if (details?.mechanicalOnly && sepiaMechanicalRoundsUsed < SEPIA_MECHANICAL_EXTRA_ROUNDS) {
+                sepiaMechanicalRoundsUsed += 1;
+                return true;
+              }
+              return false;
+            }
             const claimed = await this.automaticAttempts.claim(jobId, chapter.id, kind);
             chapterRetryCountUsed = 1;
             if (claimed) {
@@ -685,7 +713,7 @@ export class NovelPipelineExecutor {
                   onStageChange: async (stage) => {
                     await applyChapterStage(stage);
                   },
-                  onRetryConsumed: () => claimAttempt("quality_repair"),
+                  onRetryConsumed: (_kind, details) => claimAttempt("quality_repair", details),
                   onEmptyContent: async (event) => {
                     const willRetry = event.willRetry || (isAutopilotMode && chapterRetryCountUsed < chapterRetryBudget);
                     const detail = buildEmptyChapterDetail(chapter);

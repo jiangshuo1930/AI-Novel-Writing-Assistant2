@@ -86,6 +86,88 @@ export interface SepiaAntiAiRuleSeed {
   globalBaselineEnabled: boolean;
 }
 
+/** 第 2 层 篇章（discourse-pass.md）：毛病表 + 位置表 */
+export interface SepiaDiscourseTable {
+  kind: "flaws" | "positions" | "other" | string;
+  header: string[];
+  rows: Array<Record<string, string>>;
+}
+
+export interface SepiaDiscourseSection {
+  key: string;
+  title: string;
+  tables: SepiaDiscourseTable[];
+  bullets: string[];
+}
+
+/** 网文体检表（rubric.md）：5 组、29 项，一项一条 */
+export interface SepiaDiagnosisItem {
+  item: string;
+  detect: string;
+  good: string;
+  fix: string;
+}
+
+export interface SepiaDiagnosisGroup {
+  key: string;
+  title: string;
+  items: SepiaDiagnosisItem[];
+}
+
+export interface SepiaDiagnosis {
+  usage: string[];
+  groups: SepiaDiagnosisGroup[];
+}
+
+/** 自检清单（selfcheck.md）：L1–L4 分层 + 误伤警告 + 通过标准 */
+export interface SepiaSelfCheckLevel {
+  key: string;
+  title: string;
+  items: string[];
+}
+
+export interface SepiaFalsePositiveWarning {
+  feature: string;
+  threshold: string;
+  note: string;
+}
+
+export interface SepiaSelfCheck {
+  levels: SepiaSelfCheckLevel[];
+  falsePositiveWarnings: SepiaFalsePositiveWarning[];
+  passCriteria: string[];
+  doubleTests: string[];
+  quickCheck: string[];
+}
+
+/** 第 0 层 台账（state-schema.md）：6 节字段模板 */
+export interface SepiaStateTable {
+  header: string[];
+  rows: string[][];
+  rowCount: number;
+}
+
+export interface SepiaStateSection {
+  key: string;
+  title: string;
+  tables: SepiaStateTable[];
+  bullets: string[];
+}
+
+/** 各模型写作惯性（model-fingerprints.md） */
+export interface SepiaModelFingerprint {
+  key: string;
+  title: string;
+  summary: string;
+  traits: string[];
+  fixes: string[];
+}
+
+export interface SepiaModelFingerprints {
+  models: SepiaModelFingerprint[];
+  humanSignals: Array<{ feature: string; how: string }>;
+}
+
 export interface SepiaPackData {
   bannedWords: string[];
   sentencePatterns: SepiaSentencePattern[];
@@ -94,6 +176,12 @@ export interface SepiaPackData {
   roles: SepiaRole[];
   bannedWordGroups: SepiaBannedWordGroup[];
   antiAiRuleSeeds: SepiaAntiAiRuleSeed[];
+  /** 以下为参考文档的结构化转写，0.5.1 之前的包没有这些字段 */
+  discourse?: SepiaDiscourseSection[];
+  diagnosis?: SepiaDiagnosis;
+  selfCheck?: SepiaSelfCheck;
+  stateLedger?: SepiaStateSection[];
+  modelFingerprints?: SepiaModelFingerprints;
 }
 
 export interface SepiaPack {

@@ -52,6 +52,29 @@ const SEPIA_DOUBLES = {
     buildSepiaWritingContract: () => null,
     renderSepiaContractText: () => "",
   },
+  "../../sepia/gate/sepiaGateStatus": {
+    buildSepiaGateStatus: () => ({
+      schemaVersion: 1, verdict: "passed", blocking: 0, advisory: 0,
+      deslop: "ok", packVersion: "", contentHash: "", checkedAt: "",
+    }),
+    saveSepiaGateStatus: async () => undefined,
+    parseSepiaGateStatus: () => null,
+  },
+  // 结构自检是额外一次 LLM 调用；替身恒返回 null（= 本次跳过），
+  // 这样预算/租约这些老用例的行为与合并前逐字节一致。
+  "../../sepia/selfcheck/sepiaSelfCheck": {
+    SEPIA_SELFCHECK_PASS_TAG: "sepia_selfcheck:pass",
+    SEPIA_SELFCHECK_FAIL_PREFIX: "sepia_selfcheck:fail",
+    SEPIA_SELFCHECK_ADVISORY_PREFIX: "sepia_selfcheck_advisory",
+    SEPIA_SELFCHECK_UNAVAILABLE_TAG: "sepia_selfcheck_unavailable",
+    mergeSelfCheckIntoAssessment: (assessment) => assessment,
+    isBlockingLevelItem: () => false,
+    readSelfCheckBlockingCount: () => 0,
+    hasSelfCheckUnavailableTag: () => false,
+  },
+  "./SepiaStructuralSelfCheckService": {
+    runSepiaStructuralSelfCheck: async () => null,
+  },
 };
 
 // Only explicit doubles can cross the module boundary: no production DB or LLM imports.
@@ -78,6 +101,7 @@ function createPipelineHarness({
   scores = [90],
   repairError,
   repairContent = "repair candidate",
+  repairContents,
   repairMetadata = {},
   acceptanceMeta = {},
   acceptanceAssessment,
@@ -110,7 +134,11 @@ function createPipelineHarness({
       runChapterRepairText: async () => {
         events.push("repair");
         if (repairError) throw repairError;
-        return { content: repairContent, ...repairMetadata };
+        const round = events.filter((event) => event === "repair").length - 1;
+        const nextContent = Array.isArray(repairContents)
+          ? (repairContents[Math.min(round, repairContents.length - 1)] ?? repairContent)
+          : repairContent;
+        return { content: nextContent, ...repairMetadata };
       },
     },
     "../chapterPatchRepairService": { ChapterPatchRepairFailedError: class extends Error {} },
@@ -144,18 +172,27 @@ function createPipelineHarness({
       styleBaselines.push(styleRewriteBaseline);
       events.push("acceptance");
       if (stopAt === "recheck" && reviewIndex > 0) throw new Error("recheck");
-      const score = scores[Math.min(reviewIndex++, scores.length - 1)];
+      const roundIndex = Math.min(reviewIndex, scores.length - 1);
+      const score = scores[roundIndex];
+      reviewIndex += 1;
+      // 数组形态用于多轮收敛：每轮可以给不同的门结果（sepia 硬伤数逐轮下降）。
+      const roundMeta = Array.isArray(acceptanceMeta)
+        ? (acceptanceMeta[Math.min(roundIndex, acceptanceMeta.length - 1)] ?? {})
+        : acceptanceMeta;
+      const roundAssessment = Array.isArray(acceptanceAssessment)
+        ? (acceptanceAssessment[Math.min(roundIndex, acceptanceAssessment.length - 1)] ?? null)
+        : (reviewIndex > 1 && recheckAssessment ? recheckAssessment : acceptanceAssessment);
       return {
         finalContent: value,
         runtimePackage: {
           novelId: "n", chapterId: "c",
           audit: { score: { coherence: score, repetition: score, engagement: score, overall: score }, openIssues: [], reports: [], hasBlockingIssues: auditHasBlockingIssues },
-          context: {}, meta: { acceptanceStatus: score >= 80 ? "accepted" : "repairable", ...acceptanceMeta },
+          context: {}, meta: { acceptanceStatus: score >= 80 ? "accepted" : "repairable", ...roundMeta },
           styleReview: { report: null, autoRewritten: false, originalContent: null },
           ...(timelineStatus ? { timelineCheck: { status: timelineStatus } } : {}),
         },
         needsRepair: score < 80,
-        ...(acceptanceAssessment ? { acceptanceResult: { assessment: reviewIndex > 1 && recheckAssessment ? recheckAssessment : acceptanceAssessment } } : {}),
+        ...(roundAssessment ? { acceptanceResult: { assessment: roundAssessment } } : {}),
       };
     },
     commitFinalizedChapterContent: async ({ evaluation }) => {

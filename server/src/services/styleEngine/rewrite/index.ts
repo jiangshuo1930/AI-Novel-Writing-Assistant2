@@ -21,12 +21,18 @@ export function guardStylePatches(input: {
   allowedIssueIds: string[];
   styleIssueIds: string[];
   protectedTerms?: string[];
+  /**
+   * 额外编号识别：sepia 的机械项在问题清单里以 `[sepia L1-1]` 这种标签出现，
+   * 模型会照抄标签作为 issueIds，而标签本身不是 `audit.openIssues` 里的编号。
+   * 这些项是本章必须清零的硬伤，不属于越权修改，所以由调用方给出识别规则。
+   */
+  acceptIssueId?: (issueId: string) => boolean;
 }): { content: string; guard: StyleRewriteGuard; baseline: StyleRewriteBaseline } {
   const applied = applyChapterPatchRepairPlan(input.original, input.plan);
   const allowed = new Set(input.allowedIssueIds);
   const style = new Set(input.styleIssueIds);
   const scopeValid = applied.success && input.plan.patches.every(patch => patch.issueIds.length > 0
-    && patch.issueIds.every(id => allowed.has(id)));
+    && patch.issueIds.every(id => allowed.has(id) || input.acceptIssueId?.(id) === true));
   const total = Math.max(1, count(input.original));
   const touchedRatio = input.plan.patches.reduce((sum, patch) => sum + count(patch.targetExcerpt), 0) / total;
   const addedCharacters = input.plan.patches.reduce((sum, patch) => sum

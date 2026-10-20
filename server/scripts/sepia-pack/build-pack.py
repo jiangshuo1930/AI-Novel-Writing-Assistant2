@@ -121,6 +121,12 @@ def parse_techniques(path):
             continue
         if current and not current["summary"] and line.strip() and not line.startswith("#"):
             text = line.strip()
+            # `**辩证铁律**：减的是"空"…` —— 加粗小标题后紧跟正文，正文才是摘要。
+            # 之前一律跳过 `**` 开头的行，导致第30招（必选）的 summary 是空串。
+            bold = re.match(r"^\*\*[^*]+\*\*[：:]\s*(.+)$", text)
+            if bold:
+                current["summary"] = bold.group(1).strip()
+                continue
             if text.startswith(("**", ">", "-", "*", "|")):
                 continue
             current["summary"] = text
@@ -253,6 +259,254 @@ def parse_banned_groups(path):
     return groups
 
 
+# ---------------------------------------------------------------- 参考文档 → 结构化数据
+#
+# 合并前这 6 篇 md 只是随包携带、运行时从不打开。下面把它们编译成项目能消费的结构：
+#   discourse-pass.md  → discourse（第2层 篇章，毛病表 + 位置表）
+#   rubric.md          → diagnosis（28 项体检表，5 组）
+#   selfcheck.md       → selfCheck（L1–L4 分层 + 误伤警告 + 通过标准 + 快速清单）
+#   state-schema.md    → stateLedger（第0层 台账，6 节字段）
+#   model-fingerprints.md → modelFingerprints（按模型分组的写作惯性）
+#
+# 纪律：只做结构提取，不改写措辞。
+
+
+def _split_row(line):
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def _is_divider(cells):
+    return bool(cells) and set("".join(cells)) <= set("-: ")
+
+
+def collect_sections(text, level=2):
+    """按 `## ` 切节，节内收表格（带表头）、列表项、段落与 `###` 子标题。"""
+    prefix = "#" * level + " "
+    sections = []
+    current = None
+    header = None
+    table = None
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        if line.startswith(prefix) and not line.startswith(prefix + "#"):
+            current = {"title": line[len(prefix):].strip(), "tables": [], "bullets": [], "paragraphs": [], "subheads": []}
+            sections.append(current)
+            header = None
+            table = None
+            continue
+        if current is None:
+            continue
+        if line.startswith("#" * (level + 1) + " "):
+            current["subheads"].append(line[level + 1:].strip())
+            header = None
+            table = None
+            continue
+        if line.startswith("|"):
+            cells = _split_row(line)
+            if _is_divider(cells):
+                continue
+            if header is None:
+                header = cells
+                table = {"header": cells, "rows": []}
+                current["tables"].append(table)
+                continue
+            if table is not None:
+                table["rows"].append(cells)
+            continue
+        header = None
+        table = None
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            current["bullets"].append(stripped[2:].strip())
+        elif re.match(r"^\d+\.\s+", stripped):
+            current["bullets"].append(re.sub(r"^\d+\.\s+", "", stripped))
+        elif stripped and stripped != "```" and not stripped.startswith("---"):
+            current["paragraphs"].append(stripped)
+    return sections
+
+
+def parse_discourse(path):
+    """第 2 层 篇章：毛病表（毛病/症状/怎么改）+ 位置表（位置/机器习惯/人怎么写）。"""
+    out = []
+    for index, section in enumerate(collect_sections(read_text(path)), 1):
+        tables = []
+        for table in section["tables"]:
+            head = table["header"]
+            if head[:3] == ["毛病", "症状", "怎么改"]:
+                rows = [{"flaw": r[0], "symptom": r[1], "fix": r[2] if len(r) > 2 else ""} for r in table["rows"]]
+                kind = "flaws"
+            elif head[:3] == ["位置", "机器习惯", "人怎么写"]:
+                rows = [{"position": r[0], "machine": r[1], "human": r[2] if len(r) > 2 else ""} for r in table["rows"]]
+                kind = "positions"
+            else:
+                rows = [dict(zip(head, r)) for r in table["rows"]]
+                kind = "other"
+            tables.append({"kind": kind, "header": head, "rows": rows})
+        out.append({
+            "key": f"discourse-{index}",
+            "title": section["title"],
+            "tables": tables,
+            "bullets": section["bullets"],
+        })
+    return out
+
+
+def parse_rubric(path):
+    """网文 28 项体检表：五组，每组一张表（项/怎么看出/怎么写算好/怎么改）。"""
+    usage, groups = [], []
+    for section in collect_sections(read_text(path)):
+        title = section["title"]
+        if re.match(r"^第[一二三四五六]组", title):
+            items = []
+            for table in section["tables"]:
+                for row in table["rows"]:
+                    items.append({
+                        "item": row[0],
+                        "detect": row[1] if len(row) > 1 else "",
+                        "good": row[2] if len(row) > 2 else "",
+                        "fix": row[3] if len(row) > 3 else "",
+                    })
+            groups.append({"key": f"group-{len(groups) + 1}", "title": title, "items": items})
+        elif "用法" in title:
+            usage = section["bullets"]
+    return {"usage": usage, "groups": groups}
+
+
+def parse_selfcheck(path):
+    """L1–L4 自检清单 + 误伤警告 + 通过标准 + 快速检查清单。
+
+    L1 的细则已由 lint 端口执行，这里只留标题，供 UI 对照；
+    L2–L4 是判断层，条目原文照抄。
+    """
+    levels, warnings, pass_criteria, quick_check, double_tests = [], [], [], [], []
+    for section in collect_sections(read_text(path)):
+        title = section["title"]
+        compact = title.replace(" ", "")
+        if re.match(r"^L[1-4]", compact):
+            items = [h for h in section["subheads"]]
+            items.extend(b for b in section["bullets"] if b)
+            levels.append({
+                "key": compact[:2],
+                "title": title,
+                "items": items,
+            })
+        elif "误伤警告" in title:
+            for table in section["tables"]:
+                for row in table["rows"]:
+                    warnings.append({
+                        "feature": row[0],
+                        "threshold": row[1] if len(row) > 1 else "",
+                        "note": row[2] if len(row) > 2 else "",
+                    })
+        elif "通过标准" in title:
+            pass_criteria = [b for b in section["bullets"] if b]
+        elif "快速检查清单" in title:
+            quick_check = [re.sub(r"^\[\s*\]\s*", "", b) for b in section["bullets"] if b]
+        elif "双测试" in title:
+            double_tests = [b for b in section["bullets"] if b]
+    return {
+        "levels": levels,
+        "falsePositiveWarnings": warnings,
+        "passCriteria": pass_criteria,
+        "doubleTests": double_tests,
+        "quickCheck": quick_check,
+    }
+
+
+def parse_state_ledger(path):
+    """第 0 层 台账：6 节字段模板（节标题 + 表头 + 行）。
+
+    只取 `一、…`～`六、…` 这 6 节；`放在哪` / `模板` / `用法` / `一条硬规矩`
+    是读法说明，不是台账字段。
+    """
+    sections = []
+    for section in collect_sections(read_text(path)):
+        title = section["title"]
+        if not re.match(r"^[一二三四五六七八九十]+、", title):
+            continue
+        tables = [{"header": t["header"], "rows": t["rows"], "rowCount": len(t["rows"])} for t in section["tables"]]
+        sections.append({
+            "key": f"state-{len(sections) + 1}",
+            "title": title,
+            "tables": tables,
+            "bullets": section["bullets"],
+        })
+    return sections
+
+
+FINGERPRINT_KEY = {
+    "deepseek": "deepseek",
+    "kimi": "kimi",
+    "claude": "claude",
+    "gpt": "gpt",
+    "qwen": "qwen",
+    "gemini": "gemini",
+    "glm": "glm",
+}
+
+
+def parse_fingerprints(path):
+    """各模型写作惯性：summary + traits + fixes；末尾「人写的东西长什么样」单列。"""
+    models, human = [], []
+    current = None
+    mode = None
+    for raw in read_text(path).splitlines():
+        line = raw.rstrip()
+        if line.startswith("## "):
+            title = line[3:].strip()
+            if title.startswith("人写的东西"):
+                current = {"key": "human", "title": title, "summary": "", "traits": [], "fixes": []}
+                models.append(current)
+                mode = "human"
+                continue
+            base = title.split("（")[0].strip()
+            key = FINGERPRINT_KEY.get(base.lower(), base.lower())
+            current = {"key": key, "title": title, "summary": "", "traits": [], "fixes": []}
+            models.append(current)
+            mode = None
+            continue
+        if current is None:
+            continue
+        stripped = line.strip()
+        if stripped.startswith("**"):
+            if "怎么改" in stripped:
+                mode = "fix"
+                inline = re.match(r"^\*\*怎么改\*\*[：:]\s*(.+)$", stripped)
+                if inline:
+                    current["fixes"].append(inline.group(1).strip())
+                continue
+            if "其余" in stripped or "几条" in stripped:
+                mode = "trait"
+                continue
+            m = re.match(r"^\*\*(.+?)\*\*$", stripped)
+            if m and not current["summary"]:
+                current["summary"] = m.group(1).strip()
+                mode = "trait"
+                continue
+            continue
+        if stripped.startswith("|") and mode in ("trait", "human", None):
+            cells = _split_row(stripped)
+            if _is_divider(cells) or cells[0] in ("惯性", "特征"):
+                continue
+            if mode == "human":
+                human.append({"feature": cells[0], "how": cells[1] if len(cells) > 1 else ""})
+            else:
+                current["traits"].append(cells[0])
+                current["fixes"].append(cells[1] if len(cells) > 1 else "")
+            continue
+        if stripped.startswith("- "):
+            body = stripped[2:].strip()
+            if mode == "fix":
+                current["fixes"].append(body)
+            else:
+                current["traits"].append(body)
+            continue
+        if stripped and mode is None and not current["summary"] and stripped != "---" and not stripped.startswith(">"):
+            current["summary"] = stripped
+    models = [m for m in models if m["key"] != "human"]
+    return {"models": models, "humanSignals": human}
+
+
 GROUP_INSTRUCTIONS = {
     1: "少用书面连接词与 AI 腔副词，改成「可/但/就/所以」或直接断句。",
     2: "删掉议论性插入语与空话套话，直接说事。",
@@ -305,6 +559,7 @@ def build_data(lint):
     techniques = parse_techniques(os.path.join(zh, "techniques.md"))
     roles = parse_roles(os.path.join(zh, "roles.md"))
     banned_groups = parse_banned_groups(os.path.join(zh, "banned-words.md"))
+    diagnosis = parse_rubric(os.path.join(refs, "rubric.md"))
     return {
         "bannedWords": lint.load_banned_words(),
         "sentencePatterns": patterns,
@@ -313,6 +568,11 @@ def build_data(lint):
         "roles": roles,
         "bannedWordGroups": banned_groups,
         "antiAiRuleSeeds": build_anti_ai_seeds(banned_groups, patterns),
+        "discourse": parse_discourse(os.path.join(refs, "discourse-pass.md")),
+        "diagnosis": diagnosis,
+        "selfCheck": parse_selfcheck(os.path.join(zh, "selfcheck.md")),
+        "stateLedger": parse_state_ledger(os.path.join(refs, "state-schema.md")),
+        "modelFingerprints": parse_fingerprints(os.path.join(refs, "model-fingerprints.md")),
     }
 
 
@@ -370,10 +630,16 @@ def main():
                 "softWords": len(data["softWords"]),
                 "techniques": len(data["techniques"]),
                 "roles": len(data["roles"]),
+                "discourseSections": len(data["discourse"]),
+                "diagnosisItems": sum(len(g["items"]) for g in data["diagnosis"]["groups"]),
+                "selfCheckItems": sum(len(level["items"]) for level in data["selfCheck"]["levels"]),
+                "stateSections": len(data["stateLedger"]),
+                "modelFingerprints": len(data["modelFingerprints"]["models"]),
             },
             "notes": [
                 "阈值不在本文件内：lint.py 的阈值是内嵌字面量，由 TS 端口逐字转写。",
                 "deslop 的 22 类规则不在本文件内：vendor 目录下 JS 字节不变，运行时以子进程调用。",
+                "discourse/diagnosis/selfCheck/stateLedger/modelFingerprints 是参考文档的结构化转写，措辞未改。",
             ],
         },
         "data": data,
@@ -401,6 +667,14 @@ def main():
     print(f"softWords     {len(data['softWords'])}")
     print(f"techniques    {len(data['techniques'])}")
     print(f"roles         {len(data['roles'])}")
+    print(f"discourse     {len(data['discourse'])} 节 / "
+          f"{sum(len(t['rows']) for s in data['discourse'] for t in s['tables'])} 条")
+    print(f"diagnosis     {len(data['diagnosis']['groups'])} 组 / "
+          f"{sum(len(g['items']) for g in data['diagnosis']['groups'])} 项")
+    print(f"selfCheck     {len(data['selfCheck']['levels'])} 层 / "
+          f"{len(data['selfCheck']['quickCheck'])} 条快检")
+    print(f"stateLedger   {len(data['stateLedger'])} 节")
+    print(f"fingerprints  {len(data['modelFingerprints']['models'])} 个模型")
     print(f"contentHash   {content_hash}")
     print(f"sourceHash    {source_hash}")
 

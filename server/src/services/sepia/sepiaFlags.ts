@@ -46,3 +46,15 @@ export function isSepiaDisabled(): boolean {
 export function resetSepiaFlagWarningForTest(): void {
   legacyWarned = false;
 }
+
+/**
+ * 结构自检（rubric 五组 + selfcheck L2–L4）是否关闭。
+ *
+ * 这个开关是**独立**的，因为它是合并层里唯一一次额外 LLM 调用：
+ *   `SEPIA_SELFCHECK_DISABLED=1` 只关自检，机械门、契约、技法全部照常。
+ * 整体 `SEPIA_DISABLED=1` 仍然优先——那表示回到合并前。
+ */
+export function isSepiaSelfCheckDisabled(): boolean {
+  if (isSepiaDisabled()) return true;
+  return readFlag(process.env.SEPIA_SELFCHECK_DISABLED);
+}

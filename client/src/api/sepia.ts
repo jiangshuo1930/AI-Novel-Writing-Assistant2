@@ -17,8 +17,10 @@ import type {
   SepiaBlueprintValidation,
   SepiaChapterBlueprint,
   SepiaGateReport,
+  SepiaGateStatusRecord,
   SepiaPackImportDiff,
   SepiaPackInfo,
+  SepiaSelfCheckView,
   SepiaRoleTemplateItem,
   SepiaTechniquesResponse,
   SepiaVolumeDiagnostics,
@@ -56,6 +58,21 @@ export async function getChapterBlueprint(chapterId: string) {
   const { data } = await apiClient.get<
     ApiResponse<{ blueprint: SepiaChapterBlueprint | null; validation: SepiaBlueprintValidation }>
   >(`/sepia/chapters/${chapterId}/blueprint`, { silentErrorStatuses: [404] });
+  return data;
+}
+
+/** 自检口径：L1 已由机械门自动化，接口只给 L2–L4 + 误伤警告 */
+export async function getSepiaSelfCheck() {
+  const { data } = await apiClient.get<ApiResponse<SepiaSelfCheckView>>("/sepia/self-check");
+  return data;
+}
+
+/** 门结论落库记录：只在验收跑过门之后才有，没有就返回 null */
+export async function getSepiaGateStatus(chapterId: string) {
+  const { data } = await apiClient.get<ApiResponse<SepiaGateStatusRecord | null>>(
+    `/sepia/chapters/${chapterId}/gate-status`,
+    { silentErrorStatuses: [404] },
+  );
   return data;
 }
 

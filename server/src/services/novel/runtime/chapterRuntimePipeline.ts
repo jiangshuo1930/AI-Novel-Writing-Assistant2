@@ -27,6 +27,9 @@ import { shouldAttemptAutomaticRepair } from "./repair/ChapterRepairEligibility"
 import { detectNewSevereProseFindings } from "./proseQuality";
 import { ChapterPatchRepairFailedError } from "../chapterPatchRepairService";
 import {
+  hasSepiaSelfCheckUnavailable,
+  readSepiaBlockingCount,
+  readSepiaSelfCheckFailCount,
   selectChapterRepairCandidate,
   type ChapterRepairSelectionRecord,
 } from "./selection/ChapterRepairCandidateSelection";
@@ -43,7 +46,17 @@ export interface PipelineRuntimeHooks {
   onCheckBudget?: (reserveTokens?: number, stage?: DirectorChapterBudgetStage) => Promise<void>;
   onStageChange?: (stage: "generating_chapters" | "reviewing" | "repairing") => Promise<void>;
   onEmptyContent?: (event: PipelineEmptyContentEvent) => Promise<void>;
-  onRetryConsumed?: (kind: "quality_repair") => Promise<void | boolean>;
+  /**
+   * 领取一次修文额度。返回 false 表示预算已用完。
+   *
+   * `mechanicalOnly` 表示这一轮只是为了清 sepia 机械项（破折号、禁用词、句式套子）。
+   * 它不占用普通的章节重试预算——sepia 的纪律是「FAIL 必须清零」，
+   * 预算为 1 时第二轮会被直接拒掉，机械项就永远清不干净。
+   */
+  onRetryConsumed?: (
+    kind: "quality_repair",
+    details?: { mechanicalOnly?: boolean },
+  ) => Promise<void | boolean>;
 }
 
 export interface PipelineEmptyContentEvent {
@@ -197,6 +210,21 @@ const QUALITY_THRESHOLD = { coherence: 80, repetition: 75, engagement: 75 };
 // writer attempt at zero avoids stacking a hidden empty-content retry on top.
 const EMPTY_CONTENT_GENERATION_RETRY_LIMIT = 0;
 const NON_PATCHABLE_REVIEW_ISSUE_CODES = new Set(["acceptance_gate_unavailable", "style_review_unavailable"]);
+/**
+ * sepia 机械门最多修几轮。
+ *
+ * 对应原版 SKILL.md：「跑校验，把 FAIL 项清零」「lint.py 复跑，FAIL 清零」。
+ * 三轮是收敛上限，不是目标值——每轮都要求比上一轮少，没变少就停并保留最好的一版。
+ */
+const SEPIA_CONVERGENCE_MAX_ROUNDS = 3;
+
+/** 一版正文及其验收结果；多轮收敛时按这个粒度比较与回滚 */
+interface ChapterEvaluationSnapshot {
+  content: string;
+  result: FinalizedRuntimeResult;
+  issues: ReviewIssue[];
+  pass: boolean;
+}
 
 const AUDIT_CATEGORY_MAP: Record<"continuity" | "character" | "plot" | "mode_fit", ReviewIssue["category"]> = {
   continuity: "coherence",
@@ -225,6 +253,20 @@ export async function runPipelineChapterWithRuntime(
   } = options;
   const effectiveMaxRetries = Math.max(0, Math.min(maxRetries, 1));
   const repairAttemptsAllowed = autoRepair && repairMode !== "detect_only" ? effectiveMaxRetries : 0;
+  /**
+   * sepia 机械项的额外收敛轮数。
+   *
+   * 原版 sepia-webnovel 的 write 第 7 步与 refactor 第 3 步都是同一句话：
+   * 「跑 lint.py，把 FAIL 项清零」「复跑，FAIL 清零」——它是**循环**，不是修一次就收工。
+   * 而 ANA 的 `maxRetries` 被夹在 1，机械项常常剩两三条尾巴就停在 needs_repair。
+   *
+   * 这里只对「还剩 sepia 机械硬伤」放行额外轮次；一旦机械项清零，预算立刻回到
+   * `effectiveMaxRetries`，其他质量问题不会因此多烧 token。
+   */
+  const sepiaConvergenceRounds = autoRepair && repairMode !== "detect_only"
+    ? SEPIA_CONVERGENCE_MAX_ROUNDS
+    : 0;
+  const attemptLimit = Math.max(effectiveMaxRetries, sepiaConvergenceRounds);
   if (artifactSyncPolicy === "director_v2") {
     await hooks.onCheckCancelled?.();
     const saved = await deps.loadFinalizedChapterResult?.(novelId, chapterId);
@@ -273,12 +315,12 @@ export async function runPipelineChapterWithRuntime(
   let recoverableRepairFailure: PipelineRecoverableRepairFailure | null = null;
   let styleRewriteBaseline: StyleRewriteBaseline | undefined;
   let rewriteGuard: StyleRewriteGuard | undefined;
-  let originalEvaluation: {
-    content: string;
-    result: FinalizedRuntimeResult;
-    issues: ReviewIssue[];
-    pass: boolean;
-  } | null = null;
+  let originalEvaluation: ChapterEvaluationSnapshot | null = null;
+  /**
+   * 目前最好的一版（含原稿）。多轮收敛时用它做回滚基线：
+   * 第 2 轮修文改坏了，回到的是第 1 轮的结果，而不是一路退回原稿。
+   */
+  let bestEvaluation: ChapterEvaluationSnapshot | null = null;
   let repairSelection: ChapterRepairSelectionRecord | null = null;
 
   // 归因追踪变量
@@ -287,7 +329,7 @@ export async function runPipelineChapterWithRuntime(
   let firstMissingObligationKinds: string[] = [];
   let secondFailureIssueCodes: string[] = [];
 
-  for (let attempt = 0; attempt <= effectiveMaxRetries; attempt += 1) {
+  for (let attempt = 0; attempt <= attemptLimit; attempt += 1) {
     await hooks.onCheckCancelled?.();
     if (!content.trim()) {
       const generatedDraft = await generateNonEmptyDraftFromWriter({
@@ -334,7 +376,9 @@ export async function runPipelineChapterWithRuntime(
 
     await hooks.onStageChange?.("reviewing");
     await hooks.onCheckBudget?.(DIRECTOR_CHAPTER_PREFLIGHT_RESERVE_TOKENS, "review");
-    const priorAssessment = attempt > 0 ? originalEvaluation?.result.acceptanceResult?.assessment : undefined;
+    const priorAssessment = attempt > 0
+      ? (bestEvaluation ?? originalEvaluation)?.result.acceptanceResult?.assessment
+      : undefined;
     latestResult = await deps.finalizeChapterContent({
       novelId,
       chapterId,
@@ -373,13 +417,32 @@ export async function runPipelineChapterWithRuntime(
     const continuePolicy = latestResult.runtimePackage.meta?.continuePolicy;
     const shouldPauseForAcceptance = continuePolicy === "pause" || acceptanceStatus === "needs_manual_review";
     const shouldRepairFromAcceptance = continuePolicy === "repair_once" || acceptanceStatus === "repairable";
+    /**
+     * sepia 两级门：
+     *   1. 机械门（脚本）—— 硬伤必须清零；
+     *   2. 结构自检（LLM）—— L2 / L3-1 / L3-2 / L4 未过项必须清零。
+     * 只有两级都过，本章才算过。自检没跑成（模型/网络故障）不阻断：
+     * 它是额外一次 LLM 调用，抖动不该让整章停摆，所以只打
+     * `sepia_selfcheck_unavailable` 让人看得见"这章没跑自检"。
+     */
+    const sepiaMechanical = readSepiaBlockingCount(latestResult.runtimePackage);
+    const sepiaSelfCheck = readSepiaSelfCheckFailCount(latestResult.runtimePackage);
+    const sepiaSelfCheckUnavailable = hasSepiaSelfCheckUnavailable(latestResult.runtimePackage);
     pass = !shouldPauseForAcceptance
       && !latestResult.runtimePackage.meta?.riskTags?.includes("style_review_unavailable")
+      && sepiaMechanical === 0
+      && !latestResult.runtimePackage.meta?.riskTags?.includes("sepia_gate_unavailable")
+      && sepiaSelfCheck === 0
       && !shouldRepairFromAcceptance
       && !latestResult.runtimePackage.audit.hasBlockingIssues
       && latestResult.runtimePackage.timelineCheck?.status !== "failed"
       && isQualityPass(latestResult.runtimePackage.audit.score, qualityThreshold)
       && styleLeakageIssues.length === 0;
+    if (sepiaSelfCheckUnavailable && sepiaMechanical === 0) {
+      console.warn("[sepia] 本章结构自检未跑成，按「未过自检」记录但不阻断", {
+        novelId, chapterId, order: assembled.chapter.order,
+      });
+    }
 
     if (attempt === 0) {
       originalEvaluation = {
@@ -388,17 +451,19 @@ export async function runPipelineChapterWithRuntime(
         issues: latestIssues,
         pass,
       };
+      bestEvaluation = originalEvaluation;
     } else {
-      if (!originalEvaluation) {
+      const baseline = bestEvaluation ?? originalEvaluation;
+      if (!baseline) {
         throw new Error("Pipeline repair selection is missing the original evaluation.");
       }
       secondFailureIssueCodes = pass ? [] : extractIssueCodes(latestResult.runtimePackage);
       repairSelection = selectChapterRepairCandidate({
         original: {
-          content: originalEvaluation.content,
-          pass: originalEvaluation.pass,
-          runtimePackage: originalEvaluation.result.runtimePackage,
-          issues: originalEvaluation.issues,
+          content: baseline.content,
+          pass: baseline.pass,
+          runtimePackage: baseline.result.runtimePackage,
+          issues: baseline.issues,
         },
         candidate: {
           content,
@@ -413,7 +478,7 @@ export async function runPipelineChapterWithRuntime(
       if (repairSelection.selected === "candidate") {
         if (rewriteGuard && latestResult.runtimePackage.styleReview) {
           latestResult.runtimePackage.styleReview.autoRewritten = true;
-          latestResult.runtimePackage.styleReview.originalContent = originalEvaluation.content;
+          latestResult.runtimePackage.styleReview.originalContent = baseline.content;
         }
         await hooks.onCheckCancelled?.();
         await deps.saveDraftAndArtifacts(novelId, chapterId, content, "repaired", {
@@ -421,14 +486,26 @@ export async function runPipelineChapterWithRuntime(
           artifactSyncMode,
           syncArtifacts: false,
         });
+        bestEvaluation = {
+          content,
+          result: latestResult,
+          issues: latestIssues,
+          pass,
+        };
+        if (pass) break;
+        // sepia 的收敛只由两级门驱动：机械项或自检项还没清零才继续下一轮，
+        // 且不许空转（没变少就停，保留最好的一版）。
+        const remainingSepia = readSepiaBlockingCount(latestResult.runtimePackage);
+        const remainingSelfCheck = readSepiaSelfCheckFailCount(latestResult.runtimePackage);
+        if ((remainingSepia === 0 && remainingSelfCheck === 0) || attempt >= attemptLimit) break;
       } else {
-        content = originalEvaluation.content;
-        latestResult = originalEvaluation.result;
-        latestIssues = originalEvaluation.issues;
-        pass = originalEvaluation.pass;
+        content = baseline.content;
+        latestResult = baseline.result;
+        latestIssues = baseline.issues;
+        pass = baseline.pass;
         if (rewriteGuard && latestResult.runtimePackage.styleReview) latestResult.runtimePackage.styleReview.rewriteGuard = rewriteGuard;
+        break;
       }
-      break;
     }
 
     if (pass) {
@@ -444,7 +521,16 @@ export async function runPipelineChapterWithRuntime(
         .filter((kind) => kind.trim().length > 0);
     }
 
-    if (shouldPauseForAcceptance || !autoRepair || repairMode === "detect_only" || attempt >= effectiveMaxRetries) {
+    if (shouldPauseForAcceptance || !autoRepair || repairMode === "detect_only") {
+      break;
+    }
+    // sepia 专项项没清零时可以多跑几轮（原版的「复跑，FAIL 清零」）；其余失败守着原预算。
+    const hasSepiaWork = readSepiaBlockingCount(latestResult.runtimePackage) > 0
+      || readSepiaSelfCheckFailCount(latestResult.runtimePackage) > 0;
+    if (!hasSepiaWork && attempt >= effectiveMaxRetries) {
+      break;
+    }
+    if (attempt >= attemptLimit) {
       break;
     }
     if (shouldDeferNonPatchableReviewRisk(latestResult.runtimePackage)) {
@@ -466,10 +552,15 @@ export async function runPipelineChapterWithRuntime(
     await hooks.onStageChange?.("repairing");
     await hooks.onCheckCancelled?.();
     await hooks.onCheckBudget?.(DIRECTOR_CHAPTER_PREFLIGHT_RESERVE_TOKENS, "repair");
-    if (await hooks.onRetryConsumed?.("quality_repair") === false) break;
+    if (await hooks.onRetryConsumed?.("quality_repair", {
+      // `mechanicalOnly` 的语义是「这一轮只为 sepia 的专项门服务」：
+      // 机械项（脚本）与自检项（模型）都不占普通重试预算，否则预算为 1 时第二轮被拒，
+      // 结构问题永远修不到第二轮。
+      mechanicalOnly: hasSepiaWork,
+    }) === false) break;
     retryCountUsed += 1;
     await hooks.onCheckCancelled?.();
-    const repairResult = await repairDraftContent({
+    const repairResult = await repairWithResubmit({
       novelTitle: assembled.novel.title,
       chapterTitle: assembled.chapter.title,
       content,
@@ -481,6 +572,10 @@ export async function runPipelineChapterWithRuntime(
         temperature: request.temperature,
         repairMode,
       },
+      // 补丁被程序拒绝（编号越权、锚点失效）说明「这一版补丁不合格」，不是「这章修不动」。
+      // sepia 的复跑纪律要求清不干净就再来一遍，所以带着拒绝原因重出一次；
+      // 其余失败模式保持原来的「一次即停」，不额外烧钱。
+      resubmitOnRejection: hasSepiaWork ? 1 : 0,
     });
     rewriteGuard = repairResult.rewriteGuard;
     styleRewriteBaseline = repairResult.styleRewriteBaseline;
@@ -724,18 +819,21 @@ function detectStyleReferenceLeakageIssues(
   }];
 }
 
+type ChapterRepairOptions = {
+  provider?: LLMProvider;
+  model?: string;
+  temperature?: number;
+  repairMode?: "detect_only" | "light_repair" | "heavy_repair" | "continuity_only" | "character_only" | "ending_only";
+  modeHintSuffix?: string;
+};
+
 async function repairDraftContent(input: {
   novelTitle: string;
   chapterTitle: string;
   content: string;
   issues: ReviewIssue[];
   runtimePackage: ChapterRuntimePackage;
-  options: {
-    provider?: LLMProvider;
-    model?: string;
-    temperature?: number;
-    repairMode?: "detect_only" | "light_repair" | "heavy_repair" | "continuity_only" | "character_only" | "ending_only";
-  };
+  options: ChapterRepairOptions;
 }): Promise<{
   content: string;
   recoverableFailure?: PipelineRecoverableRepairFailure | null;
@@ -757,6 +855,7 @@ async function repairDraftContent(input: {
         model: input.options.model,
         temperature: input.options.temperature,
         repairMode: input.options.repairMode,
+        modeHintSuffix: input.options.modeHintSuffix,
       },
     });
   } catch (error) {
@@ -782,6 +881,46 @@ async function repairDraftContent(input: {
     rewriteGuard: repaired.rewriteGuard,
     styleRewriteBaseline: repaired.styleRewriteBaseline,
   };
+}
+
+/**
+ * 补丁计划被程序拒绝时，带着拒绝原因重出一版。
+ *
+ * 只在 sepia 还有活要干时启用：补丁不合格（编号越权、锚点失效、改动过大）是
+ * 「这一版没写对」，重出一版通常就能过；把它当成「这章修不动」会直接落到
+ * needs_repair，机械项永远清不了零。上限由调用方给，用尽即按原逻辑收尾。
+ */
+async function repairWithResubmit(input: {
+  novelTitle: string;
+  chapterTitle: string;
+  content: string;
+  issues: ReviewIssue[];
+  runtimePackage: ChapterRuntimePackage;
+  options: ChapterRepairOptions;
+  resubmitOnRejection: number;
+}): Promise<Awaited<ReturnType<typeof repairDraftContent>>> {
+  let result = await repairDraftContent(input);
+  for (let used = 0; used < input.resubmitOnRejection && result.recoverableFailure; used += 1) {
+    result = await repairDraftContent({
+      ...input,
+      options: {
+        ...input.options,
+        modeHintSuffix: buildResubmitHint(result.recoverableFailure.message),
+      },
+    });
+  }
+  return result;
+}
+
+function buildResubmitHint(rejection: string): string {
+  const reason = rejection.trim().replace(/\s+/g, " ").slice(0, 160);
+  return [
+    `上一版补丁被程序拒绝：${reason}`,
+    "重新输出补丁，逐条核对下面三条硬约束：",
+    "1. issueIds 只能引用问题清单里出现过的编号（blockingIssueCodes、repairDirectives 的 [sepia …] 标签或 allowedIssueIds），不得自造编号；",
+    "2. targetExcerpt 必须逐字摘自当前正文、全章唯一出现，且不得互相重叠；",
+    "3. 不改动与问题无关的段落，不扩大修改范围。",
+  ].join("\n");
 }
 
 function shouldDeferNonPatchableReviewRisk(

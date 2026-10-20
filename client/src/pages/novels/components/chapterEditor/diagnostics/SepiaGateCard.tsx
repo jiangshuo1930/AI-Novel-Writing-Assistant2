@@ -10,9 +10,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { SepiaGateFinding, SepiaGateLayer, SepiaGateReport } from "@ai-novel/shared/types/sepia";
+import type { SepiaGateFinding, SepiaGateLayer, SepiaGateReport, SepiaGateStatusRecord, SepiaSelfCheckView } from "@ai-novel/shared/types/sepia";
 import { resolveSepiaRange } from "@ai-novel/shared/utils/sepiaRange";
-import { runSepiaGate } from "@/api/sepia";
+import { getSepiaGateStatus, getSepiaSelfCheck, runSepiaGate } from "@/api/sepia";
 import { Button } from "@/components/ui/button";
 
 const LAYER_ORDER: SepiaGateLayer[] = ["surface", "discourse", "narrative"];
@@ -92,6 +92,9 @@ export default function SepiaGateCard(props: Props) {
   const [status, setStatus] = useState<Status>("idle");
   const [report, setReport] = useState<SepiaGateReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** 上次验收时落库的门结论；编辑器里手跑的报告不写库，两者分开显示 */
+  const [persisted, setPersisted] = useState<SepiaGateStatusRecord | null>(null);
+  const [selfCheck, setSelfCheck] = useState<SepiaSelfCheckView | null>(null);
   const contentRef = useRef(content);
   contentRef.current = content;
   const autoRunRef = useRef<string | null>(null);
@@ -128,6 +131,34 @@ export default function SepiaGateCard(props: Props) {
     void run();
   }, [chapterId, run]);
 
+  useEffect(() => {
+    let alive = true;
+    void getSepiaGateStatus(chapterId)
+      .then((response) => {
+        if (alive && response.success) setPersisted(response.data ?? null);
+      })
+      .catch(() => {
+        // 没有落库记录不是错误：老章节在门结论持久化之前就写完了
+      });
+    return () => {
+      alive = false;
+    };
+  }, [chapterId]);
+
+  useEffect(() => {
+    let alive = true;
+    void getSepiaSelfCheck()
+      .then((response) => {
+        if (alive && response.success) setSelfCheck(response.data ?? null);
+      })
+      .catch(() => {
+        // 自检口径只是参考，拿不到就不显示，不影响门本身
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const blockingGroups = useMemo(() => groupByLayer(report?.blocking ?? []), [report]);
   const advisoryGroups = useMemo(() => groupByLayer(report?.advisory ?? []), [report]);
 
@@ -145,6 +176,29 @@ export default function SepiaGateCard(props: Props) {
           {status === "loading" ? "检查中…" : report ? "重新检查" : "检查机械项"}
         </Button>
       </div>
+
+      {persisted ? (
+        <p className="text-xs leading-5 text-muted-foreground">
+          上次验收：{persisted.verdict === "passed" ? "过门" : persisted.verdict === "blocked" ? "未过门" : "门未跑成"}
+          {" · "}硬伤 {persisted.blocking} · 建议 {persisted.advisory}
+          {persisted.packVersion ? ` · 包 v${persisted.packVersion}` : ""}
+          {persisted.checkedAt ? ` · ${new Date(persisted.checkedAt).toLocaleString()}` : ""}
+        </p>
+      ) : null}
+
+      {/* 结构自检是机械门之后的第二级门：门清零才跑，L2/L3-1/L3-2/L4 未过同样不许进下一章 */}
+      {persisted?.selfCheck ? (
+        <p className="text-xs leading-5 text-muted-foreground">
+          上次结构自检：
+          {persisted.selfCheck.verdict === "pass"
+            ? "通过"
+            : persisted.selfCheck.verdict === "fail"
+              ? `未过 ${persisted.selfCheck.blocking} 项`
+              : "未跑成"}
+          {persisted.selfCheck.advisory > 0 ? ` · 诊断 ${persisted.selfCheck.advisory} 项` : ""}
+          {persisted.selfCheck.summary ? ` · ${persisted.selfCheck.summary}` : ""}
+        </p>
+      ) : null}
 
       {status === "loading" ? (
         <p className="text-sm leading-6 text-muted-foreground">正在跑字面与去味检测，首次约需数秒。</p>
@@ -234,6 +288,38 @@ export default function SepiaGateCard(props: Props) {
             </details>
           ) : null}
         </>
+      ) : null}
+
+      {selfCheck ? (
+        <details className="space-y-1.5 border-t border-border/40 pt-3">
+          <summary className="cursor-pointer text-xs text-muted-foreground">
+            自检口径（L2–L4 · 包 v{selfCheck.packVersion}）
+          </summary>
+          <div className="mt-2 space-y-2">
+            {selfCheck.levels.map((level) => (
+              <div key={level.key} className="space-y-1">
+                <div className="text-xs font-medium">{level.title}</div>
+                <ul className="space-y-0.5">
+                  {level.items.map((item) => (
+                    <li key={item} className="text-xs leading-5 text-muted-foreground">· {item}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            {selfCheck.falsePositiveWarnings.length > 0 ? (
+              <div className="space-y-1">
+                <div className="text-xs font-medium">误伤警告（看密度，不看单次）</div>
+                <ul className="space-y-0.5">
+                  {selfCheck.falsePositiveWarnings.map((warning) => (
+                    <li key={warning.feature} className="text-xs leading-5 text-muted-foreground">
+                      · {warning.feature}：{warning.threshold}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </details>
       ) : null}
     </section>
   );

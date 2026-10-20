@@ -64,17 +64,22 @@ test('章上存了技法 → 按存的来，不重新选', () => {
   assert.deepEqual(contract.techniques.map((item) => item.id), stored);
 });
 
-test('契约渲染文本含四块，且总字数在 700 字内', () => {
+test('契约渲染文本含七块，且总字数在 900 字内', () => {
   const contract = buildSepiaWritingContract({
     chapter: { order: 3, sepiaBlueprintJson: JSON.stringify(blueprint) },
     novel,
   });
   const text = renderSepiaContractText(contract);
   assert.match(text, /编辑视角：/);
+  assert.match(text, /人味底线/);
   assert.match(text, /本章技法/);
+  assert.match(text, /篇章安排/);
   assert.match(text, /架构表已定/);
   assert.match(text, /本类型禁用词/);
-  assert.ok(text.length <= 700, `实际 ${text.length} 字`);
+  // 甲部 14 条底线必须出现在 prompt 里，而不是只存在于规则包
+  assert.match(text, /糙话\/脏话/);
+  assert.match(text, /句式断裂/);
+  assert.ok(text.length <= 900, `实际 ${text.length} 字`);
 });
 
 test('坏 JSON 不抛错：按没有架构表处理', () => {

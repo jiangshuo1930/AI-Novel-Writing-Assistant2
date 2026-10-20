@@ -17,6 +17,8 @@ export interface ChapterRepairSelectionRecord {
   reasonCode:
     | "candidate_passed"
     | "candidate_resolved_blockers"
+    | "candidate_reduced_sepia_blocking"
+    | "candidate_reduced_sepia_selfcheck"
     | "candidate_improved"
     | "original_retained_new_severe_issue"
     | "original_retained_obligation_regression"
@@ -34,6 +36,36 @@ export interface ChapterRepairSelectionRecord {
 
 /** 与 sepia 转译层写进 riskTags 的前缀一致（`sepia_blocking:<n>`） */
 const SEPIA_BLOCKING_PREFIX = "sepia_blocking";
+/**
+ * 结构自检的标签前缀，与 `sepia/selfcheck/sepiaSelfCheck.ts` 同源。
+ *
+ * 这里重复字面量而不是 import：本模块被测试 harness 直接加载，白名单只允许
+ * 显式替身跨边界；为一串常量再加一个替身不划算。改前缀时两处必须同改。
+ */
+const SEPIA_SELFCHECK_FAIL_PREFIX = "sepia_selfcheck:fail";
+const SEPIA_SELFCHECK_UNAVAILABLE_TAG = "sepia_selfcheck_unavailable";
+
+/**
+ * 从 riskTags 读结构自检**未过项**数。
+ *
+ * 与机械项分开读：两套计数语义不同——机械项是 L1 硬伤（脚本判定），
+ * 自检项是 L2/L3-1/L3-2/L4 未过（模型判定）。合成一个数字会让回滚判定
+ * 分不清"改坏了句子"还是"改坏了结构"。
+ */
+export function readSepiaSelfCheckFailCount(runtimePackage: ChapterRuntimePackage): number {
+  let count = 0;
+  for (const tag of runtimePackage.meta?.riskTags ?? []) {
+    if (!tag.startsWith(`${SEPIA_SELFCHECK_FAIL_PREFIX}:`)) continue;
+    const parsed = Number.parseInt(tag.slice(SEPIA_SELFCHECK_FAIL_PREFIX.length + 1), 10);
+    if (Number.isFinite(parsed)) count = Math.max(count, parsed);
+  }
+  return count;
+}
+
+/** 自检没跑成算不算"过"：不算过门，但也不阻断——是否暂停由质量闭环决定 */
+export function hasSepiaSelfCheckUnavailable(runtimePackage: ChapterRuntimePackage): boolean {
+  return (runtimePackage.meta?.riskTags ?? []).includes(SEPIA_SELFCHECK_UNAVAILABLE_TAG);
+}
 
 /**
  * 从 riskTags 读 sepia 的**真实** blocking 条数。
@@ -126,6 +158,41 @@ export function selectChapterRepairCandidate(input: {
       selected: "candidate",
       reasonCode: "candidate_passed",
       reason: "修复候选通过接收检查，而原稿未通过。",
+    };
+  }
+
+  // 自检项同理：结构未过项只增不减，说明这轮修文把结构改坏了。
+  // 排在机械项后面、pass/改善之前——两级门都要看，任一变差都回滚。
+  const originalSelfCheck = readSepiaSelfCheckFailCount(input.original.runtimePackage);
+  const candidateSelfCheck = readSepiaSelfCheckFailCount(input.candidate.runtimePackage);
+  if (candidateSelfCheck > originalSelfCheck) {
+    return {
+      ...base,
+      selected: "original",
+      reasonCode: "original_retained_sepia_regression",
+      rollbackReason: "sepia_regression",
+      reason: `修复候选使 sepia 结构自检未过项由 ${originalSelfCheck} 项增至 ${candidateSelfCheck} 项，按复跑纪律回滚原稿。`,
+    };
+  }
+
+  // 机械项变少就是改善。没有这一条，多轮收敛会断在第二轮：
+  // 硬伤 3→2 但总分没动的候选会被判「没有明确改善」退回，永远清不到 0。
+  if (candidateSepiaBlocking < originalSepiaBlocking) {
+    return {
+      ...base,
+      selected: "candidate",
+      reasonCode: "candidate_reduced_sepia_blocking",
+      reason: `修复候选把 sepia 机械硬伤从 ${originalSepiaBlocking} 条降到 ${candidateSepiaBlocking} 条，按复跑清零纪律采纳。`,
+    };
+  }
+
+  // 机械项持平时看自检：结构未过项变少同样算改善，否则结构修复永远采纳不了。
+  if (candidateSelfCheck < originalSelfCheck) {
+    return {
+      ...base,
+      selected: "candidate",
+      reasonCode: "candidate_reduced_sepia_selfcheck",
+      reason: `修复候选把 sepia 结构自检未过项从 ${originalSelfCheck} 项降到 ${candidateSelfCheck} 项，按复跑纪律采纳。`,
     };
   }
 

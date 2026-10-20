@@ -15,6 +15,8 @@ export interface ChapterRepairExecutionOptions {
   model?: string;
   temperature?: number;
   repairMode?: PatchRepairMode;
+  /** 上一版补丁被拒时的原因，回灌给模型避免重复同一个错误 */
+  modeHintSuffix?: string;
 }
 
 export interface PrepareChapterRepairExecutionInput {
@@ -201,7 +203,9 @@ export async function prepareChapterRepairExecution(
   const hasStyleIssues = Boolean(input.runtimePackage?.styleReview?.report?.violations.length);
   const activeRepairMode = hasStyleIssues && input.options.repairMode === "heavy_repair"
     ? "light_repair" : input.options.repairMode ?? "light_repair";
-  const modeHint = getRepairModeHint(activeRepairMode, issueCodes);
+  const modeHint = [getRepairModeHint(activeRepairMode, issueCodes), input.options.modeHintSuffix?.trim()]
+    .filter((part): part is string => Boolean(part && part.length > 0))
+    .join("\n");
 
   if (activeRepairMode !== "heavy_repair") {
     const patchRepairService = new ChapterPatchRepairService();

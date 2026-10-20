@@ -42,3 +42,21 @@ test("only a matching current-version boundary makes a terminal chapter skippabl
     }],
   }), false);
 });
+
+test("a chapter left in needs_repair is never skippable, even with a deferred quality flag", () => {
+  const content = "门未过的正文";
+  const gated = {
+    content,
+    generationState: "reviewed",
+    chapterStatus: "needs_repair",
+    riskFlags: JSON.stringify({ qualityLoop: { terminalAction: "defer_and_continue" } }),
+    artifactSyncCheckpoints: [{
+      contentHash: contentHash(content),
+      metadataJson: JSON.stringify({ outcome: "completed" }),
+    }],
+  };
+  // 旧策略留下的 defer_and_continue 不能把待修复章节冒充成完成
+  assert.equal(isCurrentChapterProductionCompleted(gated), false);
+  // 明确 approved 的章节仍然算完成，状态字段不互相覆盖
+  assert.equal(isCurrentChapterProductionCompleted({ ...gated, generationState: "approved" }), true);
+});

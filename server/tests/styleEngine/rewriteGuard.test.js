@@ -33,6 +33,27 @@ test('unknown and report-only issue ids cannot grant an edit permission', () => 
   assert.equal(result.content, original);
   assert.ok(blocked(result).includes('patch_scope'));
 });
+test('sepia tags count as known issue ids only when the caller supplies the recognizer', () => {
+  const original = '他深吸一口气，推开了门。';
+  const plan = { strategy: 'patch_first', summary: '去掉模板化身体反应',
+    patches: [{ id: 'p', targetExcerpt: '他深吸一口气，', replacement: '他缓了缓，',
+      reason: 'sepia 机械项', issueIds: ['sepia L1-9'] }] };
+  // 没给识别规则时仍是越权：白名单里没有这个编号
+  const strict = guardStylePatches({ original, plan, allowedIssueIds: ['expression'], styleIssueIds: ['expression'] });
+  assert.equal(strict.content, original);
+  assert.ok(blocked(strict).includes('patch_scope'));
+  // 给了识别规则后放行，且仍然走同一套篇幅与保护词检查
+  const relaxed = guardStylePatches({ original, plan, allowedIssueIds: ['expression'], styleIssueIds: ['expression'],
+    acceptIssueId: id => /^sepia[\s:_-]/i.test(id) });
+  assert.equal(relaxed.content, '他缓了缓，推开了门。');
+  assert.deepEqual(blocked(relaxed), []);
+  // 识别规则只放宽编号，不放宽别的：自造的非 sepia 编号依旧被拒
+  const invented = guardStylePatches({ original, styleIssueIds: ['expression'], allowedIssueIds: ['expression'],
+    acceptIssueId: id => /^sepia[\s:_-]/i.test(id),
+    plan: { ...plan, patches: [{ ...plan.patches[0], issueIds: ['made-up-id'] }] } });
+  assert.equal(invented.content, original);
+  assert.ok(blocked(invented).includes('patch_scope'));
+});
 test('pure style cannot change numbers or protected names', () => {
   for (const [original, replacement, protectedTerms] of [
     ['张三交给李四100元。', '张三交给李四200元。', []],

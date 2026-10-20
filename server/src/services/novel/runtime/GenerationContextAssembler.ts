@@ -2,6 +2,7 @@ import type { GenerationContextPackage } from "@ai-novel/shared/types/chapterRun
 import { buildDirectorCompletionProfile } from "@ai-novel/shared/types/directorCompletion";
 import { buildCompressionLog } from "../../../prompting/core/contextBudget";
 import { prisma } from "../../../db/prisma";
+import { resolveModel } from "../../../llm/modelRouter";
 import { ragServices } from "../../rag";
 import { plannerService } from "../../planner/PlannerService";
 import { buildChapterRagQuery } from "../NovelReferenceService";
@@ -597,6 +598,8 @@ export class GenerationContextAssembler {
           select: { sepiaTechKeysJson: true },
         });
         const usedRecently = recentTechRows.flatMap((row) => readSelectedIds(row.sepiaTechKeysJson));
+        // 模型惯性表按厂商分组；模型名解析失败就不注入，不猜。
+        const routedModel = await resolveModel("chapter_drafting").catch(() => null);
         const sepiaContract = buildSepiaWritingContract({
           chapter: {
             order: chapter.order,
@@ -611,6 +614,7 @@ export class GenerationContextAssembler {
               : null,
           },
           usedRecently,
+          modelHint: routedModel?.model ?? routedModel?.provider ?? null,
         });
         if (sepiaContract) {
           chapterWriteContext.sepiaContract = sepiaContract;

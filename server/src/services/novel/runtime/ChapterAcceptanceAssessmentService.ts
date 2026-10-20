@@ -222,9 +222,29 @@ export function normalizeAssessment(
       ...reconciled.blockingIssues.filter(issue => issue.code !== "style_review_unavailable").slice(0, 5),
       ...reconciled.blockingIssues.filter(issue => issue.code === "style_review_unavailable").slice(0, 1),
     ],
-    repairDirectives: reconciled.repairDirectives.slice(0, 4),
+    repairDirectives: prioritizeDirectives(reconciled.repairDirectives),
     missingObligations: missingObligations.slice(0, 8),
   };
+}
+
+/**
+ * 修文指令排序 + 截断。
+ *
+ * sepia 的指令是在验收模型之后追加的，原来统一 `slice(0, 4)`：只要验收模型自己给了
+ * 4 条，机械项（破折号、禁用词、句式套子这些「FAIL 必须清零」的硬伤）就全被挤掉，
+ * 修文模型根本看不到——报告里明明写着硬伤，正文却永远不改。
+ *
+ * 所以机械项指令先上，其余按原顺序跟在后面；条数放宽到 8，因为 prompt 侧本身
+ * 只让模型产出最多 4 条补丁，多出来的指令只作为上下文，不会放大改动面。
+ */
+function prioritizeDirectives(
+  directives: ChapterAcceptanceAssessmentOutput["repairDirectives"],
+): ChapterAcceptanceAssessmentOutput["repairDirectives"] {
+  const isSepia = (directive: { instruction: string }) => directive.instruction.startsWith("[sepia ");
+  return [
+    ...directives.filter(isSepia),
+    ...directives.filter((directive) => !isSepia(directive)),
+  ].slice(0, 8);
 }
 
 function buildFallbackAssessment(failure: ReturnType<typeof describeAcceptanceFailure>): ChapterAcceptanceAssessmentOutput {

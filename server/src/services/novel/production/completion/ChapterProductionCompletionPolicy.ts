@@ -28,6 +28,10 @@ export function isCurrentChapterProductionCompleted(
     return false;
   }
   if (chapter.generationState === "approved" || chapter.generationState === "published") return true;
+  // 「待修复」是明确的未验收状态。旧策略下门未过的章节也会写
+  // `terminalAction: "defer_and_continue"`，只按 riskFlags 判定会把这种章节
+  // 当成已完成跳过——sepia 硬门在下次「继续创作」时就白设了。状态优先于标记。
+  if (chapter.chapterStatus === "needs_repair") return false;
   if (chapter.chapterStatus === "completed") return true;
   const riskFlags = chapter.riskFlags ?? "";
   return riskFlags.includes(TERMINAL_CONTINUE_QUALITY_LOOP_RISK_FLAG_FRAGMENT)

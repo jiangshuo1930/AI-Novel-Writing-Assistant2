@@ -603,25 +603,54 @@ export async function ensureVolumeWorkspaceDocument(params: {
     source: "legacy",
     activeVersionId: null,
   });
-  const createdVersion = await runVolumeWorkspaceTransaction(async (tx) => {
-    const version = await tx.volumePlanVersion.create({
-      data: {
-        novelId,
-        version: 1,
-        status: "active",
-        contentJson: serializeVolumeWorkspaceDocument(legacyDocument),
-        diffSummary: "从旧版主线/大纲自动回填为卷级方案。",
-      },
-    });
-    await persistActiveVolumeWorkspace(tx, novelId, {
-      ...legacyDocument,
-      activeVersionId: version.id,
-    }, version.id);
-    return version;
-  });
+  const createdVersion = await createLegacyVolumeVersionOnce(novelId, legacyDocument);
 
   return {
     ...legacyDocument,
     activeVersionId: createdVersion.id,
   };
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error
+    && (error as { code?: unknown }).code === "P2002");
+}
+
+/**
+ * 用旧版主线/大纲回填卷级方案的首个版本。
+ *
+ * 打开一本书会同时发出多个读取请求，它们都可能读到「没有卷方案版本」并一起插入
+ * `version: 1`，而 `(novelId, version)` 只允许一个赢。输的一方读回赢家即可——
+ * 数据是同一份旧稿回填出来的，没必要把并发写冲突抛成页面错误。
+ */
+async function createLegacyVolumeVersionOnce(
+  novelId: string,
+  legacyDocument: VolumePlanDocument,
+): Promise<{ id: string }> {
+  try {
+    return await runVolumeWorkspaceTransaction(async (tx) => {
+      const version = await tx.volumePlanVersion.create({
+        data: {
+          novelId,
+          version: 1,
+          status: "active",
+          contentJson: serializeVolumeWorkspaceDocument(legacyDocument),
+          diffSummary: "从旧版主线/大纲自动回填为卷级方案。",
+        },
+      });
+      await persistActiveVolumeWorkspace(tx, novelId, {
+        ...legacyDocument,
+        activeVersionId: version.id,
+      }, version.id);
+      return version;
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    const winner = await prisma.volumePlanVersion.findFirst({
+      where: { novelId, version: 1 },
+      select: { id: true },
+    });
+    if (!winner) throw error;
+    return winner;
+  }
 }

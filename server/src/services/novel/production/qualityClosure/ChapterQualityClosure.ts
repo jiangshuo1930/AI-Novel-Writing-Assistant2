@@ -11,6 +11,68 @@ import { resolveDirectorIssueDecision, type DirectorIssueDecision } from "@ai-no
 type ChapterPipelineResult = Awaited<ReturnType<ChapterRuntimeCoordinator["runPipelineChapter"]>>;
 type ChapterQualityStopAction = Extract<DirectorIssueDecision["action"], "pause_for_manual" | "fail_task">;
 
+const SEPIA_BLOCKING_TAG = "sepia_blocking";
+const SEPIA_UNAVAILABLE_TAG = "sepia_gate_unavailable";
+/** 与 `sepia/selfcheck/sepiaSelfCheck.ts` 同源；见 selection 层同名常量的说明 */
+const SEPIA_SELFCHECK_FAIL_PREFIX = "sepia_selfcheck:fail";
+
+/**
+ * sepia 两级门的判定只看确定性标记，不看 LLM 验收结论：
+ * `sepia_blocking:N` 是机械报告里的真实条数（数组会被截断/去重，不能数数组），
+ * `sepia_selfcheck:fail:N` 是结构自检的未过项数，
+ * `sepia_gate_unavailable` 表示机械门没跑成——没跑成不等于通过。
+ *
+ * 自检没跑成（`sepia_selfcheck_unavailable`）不在这里算阻断：它是额外一次 LLM 调用，
+ * 网络抖动不该让整章停摆；但报告里要看得到"这章没跑自检"，所以单独返回一个标记。
+ */
+function readSepiaGateVerdict(
+  runtimePackage: ChapterPipelineResult["runtimePackage"],
+): {blocked: boolean; blocking: number; selfCheck: number; unavailable: boolean; selfCheckUnavailable: boolean; evidence: string} {
+  let blocking = 0;
+  let selfCheck = 0;
+  let unavailable = false;
+  let selfCheckUnavailable = false;
+  const tags = runtimePackage?.meta?.riskTags ?? [];
+  for (const tag of tags) {
+    if (tag === SEPIA_UNAVAILABLE_TAG) {
+      unavailable = true;
+      continue;
+    }
+    if (tag === "sepia_selfcheck_unavailable") {
+      selfCheckUnavailable = true;
+      continue;
+    }
+    if (tag === SEPIA_BLOCKING_TAG) {
+      blocking = Math.max(blocking, 1);
+      continue;
+    }
+    if (!tag.startsWith(`${SEPIA_BLOCKING_TAG}:`)) {
+      if (tag.startsWith(`${SEPIA_SELFCHECK_FAIL_PREFIX}:`)) {
+        const parsed = Number.parseInt(tag.slice(SEPIA_SELFCHECK_FAIL_PREFIX.length + 1), 10);
+        if (Number.isFinite(parsed)) selfCheck = Math.max(selfCheck, parsed);
+      }
+      continue;
+    }
+    const parsed = Number.parseInt(tag.slice(SEPIA_BLOCKING_TAG.length + 1), 10);
+    if (Number.isFinite(parsed)) blocking = Math.max(blocking, parsed);
+  }
+  const evidence = [
+    `sepia_blocking=${blocking}`,
+    `sepia_selfcheck=${selfCheck}`,
+    ...(unavailable ? ["sepia_gate_unavailable=true"] : []),
+    ...(selfCheckUnavailable ? ["sepia_selfcheck_unavailable=true"] : []),
+    ...tags.filter(tag => tag.startsWith(`${SEPIA_BLOCKING_TAG}:`) || tag.startsWith(`${SEPIA_SELFCHECK_FAIL_PREFIX}:`)),
+  ].join(", ");
+  return {
+    blocked: blocking > 0 || unavailable || selfCheck > 0,
+    blocking,
+    selfCheck,
+    unavailable,
+    selfCheckUnavailable,
+    evidence,
+  };
+}
+
 export async function applyChapterQualityClosure(input: {
   governance: DirectorIssueTaskContext | null;
   workflowTaskId?: string;
@@ -41,7 +103,12 @@ export async function applyChapterQualityClosure(input: {
   const { chapter, chapterResult, runtimePayload } = input;
   const final = { score: chapterResult.score, issues: chapterResult.issues };
   const replanRecommendation = chapterResult.runtimePackage?.replanRecommendation;
-  const qualityDebtTerminalAction = chapterResult.pass || replanRecommendation?.scope === "global_book"
+  // sepia 机械门是硬门：硬伤没清零、或门没能跑成，都不算「这章过了」。
+  const sepiaGate = readSepiaGateVerdict(chapterResult.runtimePackage);
+  // sepia 未过门时不留 defer_and_continue：否则质量闭环会把本章记成「已完成」，
+  // 恢复创作时被 skipCompleted 跳过，等于绕过门。留空则本章停在 needs_repair，
+  // 恢复后重新走验收与 sepia 门，过了才继续。
+  const qualityDebtTerminalAction = chapterResult.pass || replanRecommendation?.scope === "global_book" || sepiaGate.blocked
     ? null
     : "defer_and_continue" as const;
   const exhaustedAttempt = input.governance?.policy.maxAutomaticRetries ?? 0;
@@ -57,6 +124,58 @@ export async function applyChapterQualityClosure(input: {
       stopAction = decision.action;
     }
   };
+
+  // sepia 机械门是硬门：硬伤没清零、或门没能跑成，都不算「这章过了」。
+  // 停在本章边界等待处理，而不是记成质量债继续写下一章。
+  if (sepiaGate.blocked) {
+    const detail = sepiaGate.unavailable
+      ? `第${chapter.order}章 sepia 机械门未能跑完，按「未过门」处理；正文已保留，请先在本章处理后再继续。`
+      : sepiaGate.blocking > 0
+        ? `第${chapter.order}章 sepia 机械门仍有 ${sepiaGate.blocking} 条硬伤未清零；正文已保留，请先在本章处理后再继续。`
+        : `第${chapter.order}章 sepia 结构自检仍有 ${sepiaGate.selfCheck} 项未过；正文已保留，请先在本章处理后再继续。`;
+    if (!input.qualityAlertDetails.includes(detail)) input.qualityAlertDetails.push(detail);
+    logPipelineWarn("sepia 门未通过，已在本章边界暂停", {
+      jobId: input.jobId,
+      order: chapter.order,
+      blocking: sepiaGate.blocking,
+      selfCheck: sepiaGate.selfCheck,
+      unavailable: sepiaGate.unavailable,
+    });
+    if (input.governance) {
+      await reportPipelineIssue({
+        governance: input.governance,
+        workflowTaskId: input.workflowTaskId,
+        novelId: input.novelId,
+        jobId: input.jobId,
+        issueCode: sepiaGate.blocking > 0 || sepiaGate.unavailable
+          ? "quality.sepia_gate_blocked"
+          : "quality.sepia_selfcheck_failed",
+        stage: "chapter_review",
+        summary: detail,
+        evidence: sepiaGate.evidence,
+        chapterId: chapter.id,
+        chapterOrder: chapter.order,
+        attempt: exhaustedAttempt,
+        hasUsableOutput: true,
+        provider: runtimePayload.provider,
+        model: runtimePayload.model,
+        temperature: runtimePayload.temperature,
+        applyAction: applyDecision,
+      });
+    } else {
+      await applyDecision(resolveDirectorIssueDecision({
+        policy: { maxAutomaticRetries: 0, issueActions: {} },
+        occurrence: {
+          issueCode: sepiaGate.blocking > 0 || sepiaGate.unavailable
+            ? "quality.sepia_gate_blocked"
+            : "quality.sepia_selfcheck_failed",
+          attempt: exhaustedAttempt,
+          maxAttempts: 0,
+          hasUsableOutput: true,
+        },
+      }));
+    }
+  }
 
   if (runtimePayload.autoReview && !chapterResult.reviewExecuted && !chapterResult.reviewRetries?.exhausted) {
     const detail = `第${chapter.order}章接收检查未能执行，正文已保留并等待后续复查。`;
@@ -155,7 +274,7 @@ export async function applyChapterQualityClosure(input: {
     return { shouldStopAfterCurrentChapter, stopAction };
   }
 
-  if (chapterResult.reviewExecuted && !chapterResult.pass) {
+  if (chapterResult.reviewExecuted && !chapterResult.pass && !sepiaGate.blocked) {
     input.qualityAlertDetails.push(
       `第${chapter.order}章（coherence=${final.score.coherence}, repetition=${final.score.repetition}, engagement=${final.score.engagement}）`,
     );

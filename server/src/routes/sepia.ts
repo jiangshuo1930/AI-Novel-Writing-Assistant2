@@ -28,6 +28,8 @@ import { diagnoseVolume } from "../services/sepia/volume/volumeDiagnostics";
 import type { VolumeDiagnostics } from "../services/sepia/volume/volumeDiagnostics";
 import { importSepiaPackRules } from "../services/sepia/pack/sepiaPackImport";
 import type { PackImportDiff } from "../services/sepia/pack/sepiaPackImport";
+import { parseSepiaGateStatus } from "../services/sepia/gate/sepiaGateStatus";
+import type { SepiaGateStatusRecord, SepiaSelfCheckView } from "@ai-novel/shared/types/sepia";
 
 const router = Router();
 
@@ -253,6 +255,55 @@ router.put("/novels/:novelId/blueprint-gate", async (req, res) => {
       data: { sepiaBlueprintGate: mode },
     });
     const payload: ApiResponse<{ mode: string }> = { success: true, data: { mode } };
+    res.status(200).json(payload);
+  } catch (error) {
+    failure(res, error);
+  }
+});
+
+router.get("/self-check", (_req, res) => {
+  try {
+    const pack = getSepiaPack();
+    const selfCheck = pack.data.selfCheck;
+    const payload: ApiResponse<SepiaSelfCheckView> = {
+      success: true,
+      data: {
+        // L1 已由机械门自动化，界面只列需要人判断的 L2–L4
+        levels: (selfCheck?.levels ?? [])
+          .filter((level) => level.key !== "L1")
+          .map((level) => ({
+            ...level,
+            items: level.items.map((item) => item.replace(/\*\*/g, "")),
+          })),
+        falsePositiveWarnings: (selfCheck?.falsePositiveWarnings ?? []).map((warning) => ({
+          ...warning,
+          feature: warning.feature.replace(/\*\*/g, ""),
+        })),
+        passCriteria: (selfCheck?.passCriteria ?? []).map((item) => item.replace(/\*\*/g, "")),
+        packVersion: pack.meta.packVersion,
+      },
+    };
+    res.status(200).json(payload);
+  } catch (error) {
+    failure(res, error);
+  }
+});
+
+router.get("/chapters/:chapterId/gate-status", async (req, res) => {
+  try {
+    const chapter = await prisma.chapter.findUnique({
+      where: { id: req.params.chapterId },
+      select: { id: true, sepiaGateStatus: true },
+    });
+    if (!chapter) {
+      const payload: ApiResponse<never> = { success: false, error: "章节不存在。" };
+      res.status(404).json(payload);
+      return;
+    }
+    const payload: ApiResponse<SepiaGateStatusRecord | null> = {
+      success: true,
+      data: parseSepiaGateStatus(chapter.sepiaGateStatus),
+    };
     res.status(200).json(payload);
   } catch (error) {
     failure(res, error);

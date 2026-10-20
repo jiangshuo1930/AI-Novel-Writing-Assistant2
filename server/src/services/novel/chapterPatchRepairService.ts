@@ -80,7 +80,17 @@ export class ChapterPatchRepairService {
       .flatMap(issue => [issue.id, issue.code].filter((id): id is string => Boolean(id)));
     const obligationIds = (input.runtimePackage?.obligationCoverage?.missing ?? [])
       .map(item => `${item.kind}:${item.summary}`);
-    const allowedIssueIds = [...new Set([...allowedStyleIds, ...nonStyleIds, ...obligationIds])];
+    /**
+     * 修文清单里还有管线自己注入的条目，模型会照抄它们的编号：
+     *   - `repairDirectives`：证据写成 `acceptance_directive:<target>`；
+     *   - sepia 机械项：指令前缀写成 `[sepia L1-1]`。
+     * 白名单若只认 `audit.openIssues`，这几类会被判「越权」，**整份补丁计划**作废——
+     * 连合法的破折号修复也一起丢掉，sepia 的「FAIL 清零」就永远走不完。
+     * 这里让许可清单与模型实际看到的清单对齐。
+     */
+    const directiveIds = (input.runtimePackage?.meta?.repairDirectives ?? [])
+      .map(directive => `acceptance_directive:${directive.target}`);
+    const allowedIssueIds = [...new Set([...allowedStyleIds, ...nonStyleIds, ...obligationIds, ...directiveIds])];
     const protectedTerms = repairContext?.writeContext.characterHardFacts?.map(item => item.name) ?? [];
     const contextBlocks = repairContext
       ? buildChapterPatchRepairContextBlocks(repairContext, issuesJson)
@@ -138,7 +148,8 @@ export class ChapterPatchRepairService {
     // A shared repair can carry both factual and expression fixes. Once style
     // issues are present, bind every patch to the server's actual issue set.
     const protection = styleIssues.length ? guardStylePatches({ original: input.content,
-      plan: generated.output, allowedIssueIds, styleIssueIds: allowedStyleIds, protectedTerms }) : undefined;
+      plan: generated.output, allowedIssueIds, styleIssueIds: allowedStyleIds, protectedTerms,
+      acceptIssueId: isSepiaIssueId }) : undefined;
     if (protection && isStyleRewriteBlocked(protection.guard)) {
       throw new ChapterPatchRepairFailedError("表达修文超出许可或保护范围，保留原稿。",
         generated.output, applied, protection.guard);
@@ -152,6 +163,16 @@ export class ChapterPatchRepairService {
       styleRewriteBaseline: protection?.baseline,
     };
   }
+}
+
+/**
+ * sepia 编号的两种写法：`SEPIA_em_dash`（转译层的 code）与 `sepia L1-1`（指令前缀）。
+ * 两者都指向本章必须清零的硬伤，允许作为补丁的 issueIds 引用。
+ */
+const SEPIA_ISSUE_ID_PATTERN = /^sepia[\s:_-]/i;
+
+function isSepiaIssueId(issueId: string): boolean {
+  return SEPIA_ISSUE_ID_PATTERN.test(issueId.trim());
 }
 
 function formatPatchRepairApplyError(error: unknown): string {

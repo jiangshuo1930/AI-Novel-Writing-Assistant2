@@ -27,6 +27,7 @@ const PROMPT_CATALOG_SHORT_DESCRIPTIONS: Record<string, string> = {
   "novel.review.chapter": "章节正文审校",
   "novel.chapter.summary": "章节摘要生成",
   "novel.chapter.acceptance_assessment": "章节验收评估",
+  "novel.sepia.structural_self_check": "sepia 结构自检",
   "novel.chapter.artifact_delta.extract": "章节事实变化提取",
   "novel.chapter_editor.rewrite_candidates": "章节候选改写",
   "novel.chapter_editor.user_intent": "改稿意图理解",

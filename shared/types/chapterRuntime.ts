@@ -474,8 +474,9 @@ export const chapterCharacterHardFactSchema = z.object({
 /**
  * sepia 生成期契约（对应合并方案 §7.5）
  *
- * 只带「本章要用的那点东西」：角色人设一句、3–5 招、架构表已定项、类型禁词 top-8。
- * 全量规则约 110 KB，全量注入必死；这个块按 700 字预算构造。
+ * 只带「本章要用的那点东西」：角色人设一句、3–5 招、架构表已定项、类型禁词 top-8，
+ * 外加底层底线、篇章安排与模型惯性三块。
+ * 全量规则约 110 KB，全量注入必死；这个块按 900 字预算构造（原四块 700 字 + 新增三块）。
  */
 export const sepiaWritingContractSchema = z.object({
   roleKey: z.string().default("general"),
@@ -492,6 +493,12 @@ export const sepiaWritingContractSchema = z.object({
     .default([]),
   blueprintLines: z.array(z.string()).default([]),
   bannedWords: z.array(z.string()).default([]),
+  /** techniques.md 甲部「底层」14 条：是底线不是招式，不占 3–5 招配额 */
+  baseTechniques: z.array(z.string()).default([]),
+  /** discourse-pass.md 的毛病表：生成前先把篇章定下来 */
+  discourseLines: z.array(z.string()).default([]),
+  /** model-fingerprints.md 里当前模型的惯性一句；解析不出模型时为 null */
+  modelFingerprint: z.string().nullable().default(null),
 });
 
 export type SepiaWritingContract = z.infer<typeof sepiaWritingContractSchema>;

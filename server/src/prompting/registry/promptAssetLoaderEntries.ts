@@ -286,6 +286,10 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/novel/coreGeneration.prompts").novelChapterHookPrompt as UnknownPromptAsset,
   },
   {
+    key: "novel.sepia.structural_self_check@v1",
+    load: () => require("../prompts/sepia/structuralSelfCheck.prompts").sepiaStructuralSelfCheckPrompt as UnknownPromptAsset,
+  },
+  {
     key: "novel.chapter.acceptance_assessment@v24",
     load: () => require("../prompts/novel/chapterAcceptance.prompts").chapterAcceptanceAssessmentPrompt as UnknownPromptAsset,
   },

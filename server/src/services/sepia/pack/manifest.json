@@ -1,8 +1,8 @@
 {
   "packVersion": "0.5.1",
-  "contentHash": "e7229f4dc82baf3533c57512e5601713f448fede330406f59a3e9b365a29b991",
-  "sourceHash": "e5c94c9d9b7502103e94f413714556359f8f2f0a42474fa49db27284e016e144",
-  "builtAt": "2026-10-19T15:37:54+00:00",
+  "contentHash": "0388989fcfed797ce1962719090a3bc4bd24f8435ee5c0b78f7fdf57111d22de",
+  "sourceHash": "71bfd586e2f02f3824fbb8184914258032fe32d9ef3197b39b1f7ee8b48c7f5a",
+  "builtAt": "2026-10-20T07:55:57+00:00",
   "files": [
     {
       "path": "CHANGELOG.md",
@@ -76,8 +76,8 @@
     },
     {
       "path": "references/zh-fiction/selfcheck.md",
-      "bytes": 13473,
-      "sha256": "39b9ea659ed218d02bc92d29e9d7c110d39a52306ea7de28a3a2a526139bfb3f"
+      "bytes": 13661,
+      "sha256": "87808558cdbc1c21b7dcbcfe79cf00564beb1a4b5faf3f9a9f8f1c714c0974da"
     },
     {
       "path": "references/zh-fiction/techniques.md",
@@ -86,8 +86,8 @@
     },
     {
       "path": "scripts/README.md",
-      "bytes": 1879,
-      "sha256": "39cd6bc5117664dcd42c3541041c997a688b4d5665ac08ab6fd941f597020430"
+      "bytes": 2383,
+      "sha256": "2ea904994c498759005cdcb8b0cd1c0f3b4512b4533b6e43c5b349e7b860e9fa"
     },
     {
       "path": "scripts/deslop/check-ai-patterns.js",
