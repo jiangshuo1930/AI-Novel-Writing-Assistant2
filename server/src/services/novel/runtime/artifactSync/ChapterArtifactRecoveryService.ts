@@ -84,8 +84,11 @@ export class ChapterArtifactRecoveryService {
       });
       if (claim === "already_done") {
         const completed = await this.deps.checkpoints.read(identity);
-        Object.assign(aggregate, this.readConsumerResult(completed?.metadataJson ?? null));
-        continue;
+        if (completed?.status === "succeeded") {
+          Object.assign(aggregate, this.readConsumerResult(completed.metadataJson));
+          continue;
+        }
+        throw this.buildExhaustedCheckpointError(completed, `消费者 ${consumer}`);
       }
       if (claim === "running") {
         throw new ChapterArtifactRecoveryPendingError(identity.artifactType);
@@ -146,7 +149,10 @@ export class ChapterArtifactRecoveryService {
     });
     if (claim === "already_done") {
       const completed = await this.deps.checkpoints.read(identity);
-      return this.readExtraction(completed?.metadataJson ?? null, contentHash);
+      if (completed?.status === "succeeded") {
+        return this.readExtraction(completed.metadataJson, contentHash);
+      }
+      throw this.buildExhaustedCheckpointError(completed);
     }
     if (claim === "running") {
       throw new ChapterArtifactRecoveryPendingError(identity.artifactType);
@@ -168,8 +174,29 @@ export class ChapterArtifactRecoveryService {
     }
   }
 
-  private readExtraction(metadataJson: string | null, contentHash: string): ChapterArtifactExtractionResult {
-    const metadata = this.parseMetadata(metadataJson);
+  private buildExhaustedCheckpointError(
+    record: {status: string; metadataJson: string | null} | null,
+    label = "抽取",
+  ): Error {
+    let reason = "未知原因";
+    if (record?.metadataJson) {
+      try {
+        const metadata = JSON.parse(record.metadataJson) as Record<string, unknown>;
+        if (typeof metadata.reason === "string" && metadata.reason.trim()) {
+          reason = metadata.reason;
+        }
+      } catch {
+        reason = "检查点数据损坏";
+      }
+    }
+    const status = record?.status ?? "missing";
+    if (status === "failed") {
+      return new Error(`章节资产${label}连续失败已达重试上限，已进入冷却期。上次失败原因：${reason}。冷却期过后会自动重试，也可立即重跑该章节的资产同步。`);
+    }
+    return new Error(`章节资产${label}检查点状态异常（${status}），无法恢复结果。`);
+  }
+
+  private readExtraction(metadataJson: string | null, contentHash: string): ChapterArtifactExtractionResult {    const metadata = this.parseMetadata(metadataJson);
     if (metadata.schemaVersion !== EXTRACTION_SCHEMA_VERSION) {
       throw new Error("章节资产抽取检查点版本不受支持。");
     }

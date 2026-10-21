@@ -61,7 +61,7 @@ test('repair verification has bounded output space for its complete evidence che
   const h=service(output());
   await h.instance.assess({...input(context()),repairReviewBaseline:{blockingIssues:[],missingObligations:[],repairDirectives:[]}});
   assert.equal(h.requests[0].options.maxTokens,6144);
-  assert.equal(prompt.chapterAcceptanceAssessmentPrompt.semanticRetryPolicy.sharedCorrectionBudget,1);
+  assert.equal(prompt.chapterAcceptanceAssessmentPrompt.semanticRetryPolicy.sharedCorrectionBudget,2);
   assert.equal(prompt.chapterAcceptanceAssessmentPrompt.fallbackRepairPolicy.maxAttempts,0);
 });
 test('disabled style review omits detection context and report while retaining writer style context', async () => {
@@ -181,7 +181,7 @@ test('exhausted style citation correction preserves independent story findings w
   assert.deepEqual(recovered.blockingIssues.map(i=>i.code), ['prop_origin','style_review_unavailable']);
   assert.deepEqual(recovered.repairDirectives.map(i=>i.target), ['continuity']);
   assert.equal(recovered.score.overall, 90);
-  assert.equal(asset.semanticRetryPolicy.maxAttempts, 1);
+  assert.equal(asset.semanticRetryPolicy.maxAttempts, 2);
   assert.throws(()=>asset.postValidateFailureRecovery({rawOutput:raw,promptInput:{content:'候选',styleReviewEnabled:true,
     repairReviewBaseline:{blockingIssues:[],missingObligations:[]}}}), /修文|核对|验证|正文/);
 });

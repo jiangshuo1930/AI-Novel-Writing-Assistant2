@@ -92,8 +92,12 @@ async function exercise({ initialTokens = 0, checkpoints, chapterTokens = 100_00
   const runtime = { runPipelineChapter: async (_novelId, id, _options, hooks) => {
     if (director && !legacySaved) await hooks.onCheckBudget?.(16000);
     calls.push(id);
-    if (director) assert.equal(JSON.parse(job.payload).directorNext.chapterUsage.find(row => row.chapterId === id).startJobTokens,
-      checkpoints?.find(row=>row.chapterId===id)?.startJobTokens ?? job.totalTokens);
+    // 重跑路径（旧闭合检查点退役）会新建检查点，startJobTokens 取当前作业计数；正常路径沿用 checkpoint 原值。
+    if (director) {
+      const openCheckpoint = checkpoints?.find(row => row.chapterId === id && row.endJobTokens === undefined);
+      assert.equal(JSON.parse(job.payload).directorNext.chapterUsage.find(row => row.chapterId === id)?.startJobTokens,
+        openCheckpoint?.startJobTokens ?? job.totalTokens);
+    }
     job.totalTokens += chapterTokens;
     if (effective) {job.promptTokens += chapterTokens*0.8;job.completionTokens += chapterTokens*0.2;cacheTokens += chapterTokens*0.4;}
     const chapter = chapters.find(row => row.id === id);
@@ -137,7 +141,21 @@ test('explicit recovery closes legacy saved quality debt without rerunning the s
   assert.equal(result.classifications, 0);
 });
 
-for (const unsafe of ['staleAcceptance', 'missingBoundary', 'acceptancePause']) {
+for (const unsafe of ['staleAcceptance', 'missingBoundary']) {
+  test(`closed usage recovery with ${unsafe} reruns the chapter check instead of pausing`, async () => {
+    const result = await exercise({ legacySaved: true, [unsafe]: true, initialTokens: 87858,
+      checkpoints: [{ chapterId: 'c1', chapterOrder: 1, startJobTokens: 0, totalTokens: 87858, endJobTokens: 87858 }] });
+    // 正文在、检查结果不在：继续的语义是重跑本章检查（旧闭合检查点退役、从当前作业计数重开用量）。
+    assert.deepEqual(result.calls, ['c1']);
+    assert.equal(result.job.pendingManualRecovery, true);
+    assert.equal(result.chapters[0].content, '已保存的c1正文');
+    assert.equal(result.job.completedCount, 1);
+    // 重跑消耗后 c2 撞预算上限暂停，等待人工调整额度后继续。
+    assert.equal(result.job.totalTokens, 187858);
+  });
+}
+
+for (const unsafe of ['acceptancePause']) {
   test(`closed usage recovery refuses ${unsafe} without invoking generation`, async () => {
     const result = await exercise({ legacySaved: true, [unsafe]: true, initialTokens: 87858,
       checkpoints: [{ chapterId: 'c1', chapterOrder: 1, startJobTokens: 0, totalTokens: 87858, endJobTokens: 87858 }] });

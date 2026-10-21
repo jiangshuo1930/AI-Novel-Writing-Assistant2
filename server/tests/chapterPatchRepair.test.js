@@ -50,17 +50,19 @@ test("overlapping patches are reported as conflicts and leave all original prose
   }
 });
 
-test("a missing patch target rejects the whole plan rather than returning partially edited prose", () => {
+test("a missing patch target is skipped while the rest of the plan still lands", () => {
   const content = "第一段需要调整。第二段保留原文。";
   const result = applyChapterPatchRepairPlan(content, {
-    summary: "不可定位的计划", patches: [
+    summary: "有一条不可定位的计划", patches: [
       patch("valid", "第一段需要调整。", "第一段调整完成。"),
       patch("missing", "不存在的目标句段。", "第二段调整完成。"),
     ],
   });
-  assert.equal(result.success, false);
-  assert.equal(result.content, content);
-  assert.deepEqual(result.appliedPatchIds, []);
+  // 一条锚点抄错不该把另外十条合法补丁一起作废——否则 sepia 硬伤永远清不零。
+  assert.equal(result.success, true);
+  assert.equal(result.content, "第一段调整完成。第二段保留原文。");
+  assert.deepEqual(result.appliedPatchIds, ["valid"]);
+  assert.equal(result.failures[0].patchId, "missing");
   assert.equal(result.failures[0].failureType, "missing_target");
 });
 
@@ -186,6 +188,28 @@ test("applyChapterPatchRepairPlan reports no_effect when replacement keeps conte
 
   assert.equal(result.success, false);
   assert.equal(result.failures[0].failureType, "no_effect");
+});
+
+test("a keep-as-is patch does not void the effective patches in the same plan", () => {
+  const result = applyChapterPatchRepairPlan("他忽然停下。【改派——姜雪辞。】沈砚点了点头。", {
+    strategy: "patch_first",
+    summary: "修掉硬伤，保留承担叙事功能的引号。",
+    patches: [
+      { id: "p1", targetExcerpt: "【改派——姜雪辞。】", replacement: "【改派，姜雪辞。】",
+        reason: "破折号改句读。", issueIds: ["sepia-L1-1"] },
+      { id: "p2", targetExcerpt: "他忽然停下。", replacement: "他停下。",
+        reason: "删去忽然。", issueIds: ["sepia-L1-2"] },
+      { id: "p3", targetExcerpt: "沈砚点了点头。", replacement: "沈砚点了点头。",
+        reason: "该处保留原文，不产出改动。", issueIds: ["deslop:quote-emphasis-tic"] },
+    ],
+    requiresFullRewrite: false,
+    escalationReason: null,
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.content, "他停下。【改派，姜雪辞。】沈砚点了点头。");
+  assert.deepEqual(result.appliedPatchIds.sort(), ["p1", "p2"]);
+  assert.equal(result.failures.length, 0);
 });
 
 test("applyChapterPatchRepairPlan rejects full rewrite plans", () => {
@@ -356,4 +380,18 @@ test("runChapterRepairText preserves AI directive modes in the patch request ins
     assert.equal(payload.issues.length, 1);
     assert.equal(result.content, "主角留下佩刀，走进门里。");
   } finally { promptRunner.runStructuredPrompt = previous; }
+});
+
+test("a plan above the patch ceiling is truncated instead of rejected", () => {
+  // 修文 prompt 允许机械硬伤「一处一条、最多 12 条」，schema 必须对齐；
+  // 此前上限是 8，模型覆盖 11 处 sepia 命中时 Zod 直接抛错，整份计划消失。
+  const sentences = Array.from({ length: 11 }, (_, i) => `第${i}处忽然停顿。`);
+  const content = sentences.join("");
+  const result = applyChapterPatchRepairPlan(content, {
+    summary: "覆盖全部机械命中",
+    patches: sentences.map((sentence, i) => patch(`p${i}`, sentence, `第${i}处停顿。`)),
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.appliedPatchIds.length, 11);
+  assert.equal(result.content.includes("忽然"), false);
 });

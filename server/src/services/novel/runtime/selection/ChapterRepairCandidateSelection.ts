@@ -36,6 +36,8 @@ export interface ChapterRepairSelectionRecord {
 
 /** 与 sepia 转译层写进 riskTags 的前缀一致（`sepia_blocking:<n>`） */
 const SEPIA_BLOCKING_PREFIX = "sepia_blocking";
+/** 与转译层写进 riskTags 的 advisory 计数前缀一致（`sepia_advisory:<n>`） */
+const SEPIA_ADVISORY_PREFIX = "sepia_advisory";
 /**
  * 结构自检的标签前缀，与 `sepia/selfcheck/sepiaSelfCheck.ts` 同源。
  *
@@ -83,6 +85,22 @@ export function readSepiaBlockingCount(runtimePackage: ChapterRuntimePackage): n
     }
     if (!tag.startsWith(`${SEPIA_BLOCKING_PREFIX}:`)) continue;
     const parsed = Number.parseInt(tag.slice(SEPIA_BLOCKING_PREFIX.length + 1), 10);
+    if (Number.isFinite(parsed)) count = Math.max(count, parsed);
+  }
+  return count;
+}
+
+/**
+ * 从 riskTags 读 sepia advisory 的真实条数。
+ *
+ * advisory 不阻塞过门，但用户看得见——报告里挂着 4 条「建议」而正文一个字没改，
+ * 等于没修。清理轮要靠这个数判断「这轮有没有真的变少」，不做无进展空转。
+ */
+export function readSepiaAdvisoryCount(runtimePackage: ChapterRuntimePackage): number {
+  let count = 0;
+  for (const tag of runtimePackage.meta?.riskTags ?? []) {
+    if (!tag.startsWith(`${SEPIA_ADVISORY_PREFIX}:`)) continue;
+    const parsed = Number.parseInt(tag.slice(SEPIA_ADVISORY_PREFIX.length + 1), 10);
     if (Number.isFinite(parsed)) count = Math.max(count, parsed);
   }
   return count;

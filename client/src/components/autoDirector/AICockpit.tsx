@@ -218,6 +218,8 @@ function artifactTypeLabel(type: string): string {
     chapter_retention_contract: "留存约定",
     continuity_state: "连续性",
     rolling_window_review: "近期复盘",
+    prose_quality: "正文自然度",
+    sepia_gate: "机制硬伤门",
   };
   return labels[type] ?? type;
 }

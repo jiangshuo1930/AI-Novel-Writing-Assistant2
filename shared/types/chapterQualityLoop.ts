@@ -10,6 +10,7 @@ export const CHAPTER_QUALITY_LOOP_ARTIFACT_TYPES = [
   "continuity_state",
   "rolling_window_review",
   "prose_quality",
+  "sepia_gate",
 ] as const;
 
 export type ChapterQualityLoopArtifactType = typeof CHAPTER_QUALITY_LOOP_ARTIFACT_TYPES[number];
@@ -356,6 +357,30 @@ function buildProseQualitySignal(input: ChapterQualityLoopAssessmentInput): Chap
   };
 }
 
+function buildSepiaGateSignal(input: ChapterQualityLoopAssessmentInput): ChapterQualityLoopSignal {
+  const tags = input.runtimePackage?.meta?.riskTags ?? [];
+  const blockingTags = tags.filter((tag) => (
+    tag === "sepia_gate_unavailable"
+    || tag === "sepia_blocking"
+    || tag.startsWith("sepia_blocking:")
+    || tag.startsWith("sepia_selfcheck:fail")
+  ));
+  /**
+   * sepia 机械门是硬门：硬伤没清零、或门没跑成，都不能算「本章完成」。
+   * 这里必须进信号表——否则 LLM 验收说 continue，质量闭环就会把本章标成
+   * approved/completed，下一次「继续创作」按 skipCompleted 直接跳过它，
+   * 门等于白设。
+   */
+  return {
+    artifactType: "sepia_gate",
+    status: blockingTags.length > 0 ? "invalid" : "valid",
+    reason: blockingTags.length > 0
+      ? "本章 sepia 机械门仍有硬伤未清零，不能记为已完成。"
+      : "sepia 机械门已清零。",
+    issueCodes: blockingTags.slice(0, 8),
+  };
+}
+
 function buildRollingWindowSignal(input: ChapterQualityLoopAssessmentInput): ChapterQualityLoopSignal {
   const replanRecommendation = input.runtimePackage?.replanRecommendation
     ?? input.replanRecommendation
@@ -404,6 +429,7 @@ export function buildChapterQualityLoopAssessment(
     buildContinuitySignal(input),
     buildProseQualitySignal(input),
     buildRollingWindowSignal(input),
+    buildSepiaGateSignal(input),
   ];
   const overallStatus = signals.reduce<ChapterQualityLoopSignalStatus>(
     (status, signal) => worseStatus(status, signal.status),

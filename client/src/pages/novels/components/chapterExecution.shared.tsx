@@ -443,6 +443,8 @@ function qualityLoopArtifactLabel(value: unknown): string | null {
       return "章节衔接风险";
     case "prose_quality":
       return "正文自然度/退化检测";
+    case "sepia_gate":
+      return "机制硬伤门";
     default:
       return null;
   }

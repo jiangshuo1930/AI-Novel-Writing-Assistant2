@@ -254,3 +254,129 @@ test('[读上下文] 不把 accepted 抬成 repairable：warn 不主动开修文
   assert.equal(merged.continuePolicy, 'continue');
   assert.ok(merged.repairDirectives.some((d) => d.mode === 'patch'));  // 指令随行
 });
+
+test('advisory 形态项在硬伤清零后独立开一轮修文，并标记为「只差 advisory」', () => {
+  const merged = acc.mergeSepiaIntoAssessment(assessment(), report([], {
+    advisory: [
+      finding({ checkId: 'L1-6', severity: 'advisory', rawItem: 'L1-6 冒号', message: '19 处（尽量 0）' }),
+      finding({ checkId: 'lint:long-sentence', severity: 'advisory', rawItem: '超长句', message: '5 句 >55 字' }),
+    ],
+    advisoryCount: 2,
+  }));
+  assert.equal(merged.status, 'repairable');
+  assert.equal(merged.continuePolicy, 'repair_once');
+  // 关键：不算硬伤，章节仍可判过，否则一个冒号密度会卡死整条流水线
+  assert.ok(merged.riskTags.includes(acc.SEPIA_ADVISORY_REPAIR_TAG));
+  assert.ok(!merged.riskTags.some((t) => t.startsWith('sepia_blocking')));
+  assert.equal(merged.blockingIssues.length, 0);
+  const instructions = merged.repairDirectives.map((d) => d.instruction).join('\n');
+  assert.match(instructions, /L1-6/);
+  assert.match(instructions, /55 字/);
+});
+
+test('advisory 清理可整体关掉（排障时回到只清 blocking）', () => {
+  process.env.SEPIA_ADVISORY_REPAIR = 'off';
+  try {
+    const merged = acc.mergeSepiaIntoAssessment(assessment(), report([], {
+      advisory: [finding({ checkId: 'L1-6', severity: 'advisory', rawItem: 'L1-6 冒号', message: '19 处' })],
+      advisoryCount: 1,
+    }));
+    assert.equal(merged.status, 'accepted');
+    assert.equal(merged.continuePolicy, 'continue');
+    assert.ok(!merged.riskTags.includes(acc.SEPIA_ADVISORY_REPAIR_TAG));
+  } finally {
+    delete process.env.SEPIA_ADVISORY_REPAIR;
+  }
+});
+
+test('有硬伤时 advisory 指令随行，不留「硬伤清零、advisory 原样」', () => {
+  const merged = acc.mergeSepiaIntoAssessment(assessment(), report(
+    [finding({ checkId: 'L1-1', severity: 'blocking', message: '破折号 3 处' })],
+    {
+      advisory: [finding({ checkId: 'L1-6', severity: 'advisory', rawItem: 'L1-6 冒号', message: '19 处' })],
+      advisoryCount: 1,
+    },
+  ));
+  assert.equal(merged.status, 'repairable');
+  assert.ok(!merged.riskTags.includes(acc.SEPIA_ADVISORY_REPAIR_TAG));
+  assert.match(merged.repairDirectives.map((d) => d.instruction).join('\n'), /L1-6/);
+});
+
+test('advisory-only 的合并结果能真正进入修文通道（不被「没有 blockingIssues」挡掉）', () => {
+  const { shouldAttemptAutomaticRepair } = require(path.resolve(__dirname, '..', 'dist', 'services', 'novel', 'runtime', 'repair', 'ChapterRepairEligibility.js'));
+  const merged = acc.mergeSepiaIntoAssessment(assessment(), report([], {
+    advisory: [finding({ checkId: 'L1-6', severity: 'advisory', rawItem: 'L1-6 冒号', message: '19 处' })],
+    advisoryCount: 1,
+  }));
+  const runtimePackage = {
+    meta: {
+      acceptanceStatus: merged.status,
+      continuePolicy: merged.continuePolicy,
+      repairDirectives: merged.repairDirectives,
+      riskTags: merged.riskTags,
+    },
+    audit: { hasBlockingIssues: false },
+    timelineCheck: { status: 'passed' },
+  };
+  assert.equal(shouldAttemptAutomaticRepair(runtimePackage, 'light_repair'), true);
+
+  // 反证：把 advisory 清理关掉时，同一份报告不应再要求修文
+  process.env.SEPIA_ADVISORY_REPAIR = 'off';
+  try {
+    const off = acc.mergeSepiaIntoAssessment(assessment(), report([], {
+      advisory: [finding({ checkId: 'L1-6', severity: 'advisory', rawItem: 'L1-6 冒号', message: '19 处' })],
+      advisoryCount: 1,
+    }));
+    assert.equal(shouldAttemptAutomaticRepair({
+      meta: { acceptanceStatus: off.status, continuePolicy: off.continuePolicy, repairDirectives: off.repairDirectives, riskTags: off.riskTags },
+      audit: { hasBlockingIssues: false },
+      timelineCheck: { status: 'passed' },
+    }, 'light_repair'), false);
+  } finally {
+    delete process.env.SEPIA_ADVISORY_REPAIR;
+  }
+});
+
+test('计数型硬伤要带上正文原句：没定位的模型只能凭记忆写 targetExcerpt，一改就整单作废', () => {
+  const content = [
+    '沈砚忽然换了副笑脸，语气软下来。',
+    '姜雪辞盯着他，半晌没挪开。',
+    '窗外雨停了。',
+  ].join("\n");
+  const r = report([finding({
+    checkId: 'L1-2',
+    message: '命中 2 处 / 扫描 153 条；忽然 × 1；半晌 × 1',
+  })]);
+  const directives = acc.toRepairDirectives(r, content);
+  assert.equal(directives.length, 1);
+  const text = directives[0].instruction;
+  assert.match(text, /命中原文/);
+  assert.match(text, /沈砚忽然换了副笑脸/);
+  assert.match(text, /半晌没挪开/);
+  assert.doesNotMatch(text, /窗外雨停了/);
+
+  const issues = acc.toAcceptanceIssues(r, content);
+  assert.match(issues[0].evidence, /命中原文/);
+  assert.match(issues[0].evidence, /忽然换了副笑脸/);
+});
+
+test('引号里的句号不切句：切在引号内会让补丁锚到半句上，改坏对白结构', () => {
+  const content = '她说：“会。经脉接触，药力分岔。”然后转身走了。';
+  const hits = acc.locateHitSentences(content, { checkId: 'L1-2', message: '命中 1 处；转身 × 1' });
+  assert.equal(hits.length, 1);
+  assert.ok(hits[0].startsWith('她说：'));
+  assert.ok(hits[0].endsWith('然后转身走了。'));
+});
+
+test('冒号与相邻同长句也能给到具体句子，而不是只报条数', () => {
+  const content = [
+    '他低头看了眼筐底。',
+    '筐底沾着新鲜的药渣。',
+    '紫苏叶和赤灵芝混在一起。',
+    '“节点跳动：半格。”',
+  ].join("\n");
+  const colon = acc.locateHitSentences(content, { checkId: 'L1-6', message: '4 处（尽量 0）' });
+  assert.ok(colon.some(s => s.includes('节点跳动：半格')));
+  const runs = acc.locateHitSentences(content, { checkId: 'lint:adjacent-length', message: '最长连续 3 句长度接近' });
+  assert.ok(runs.length >= 3);
+});

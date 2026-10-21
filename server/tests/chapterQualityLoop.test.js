@@ -37,7 +37,28 @@ test("buildChapterQualityLoopAssessment continues when quality signals are valid
   assert.equal(assessment.recommendedAction, "continue");
   assert.equal(assessment.patchFirstRequired, false);
   assert.equal(assessment.recheckRequired, false);
-  assert.equal(assessment.signals.length, 4);
+  assert.equal(assessment.signals.length, 5);
+});
+
+test("sepia 机械硬伤未清零时不允许把本章记为已完成", () => {
+  const assessment = buildChapterQualityLoopAssessment({
+    chapterId: "chapter-3",
+    chapterOrder: 3,
+    score: score(),
+    issues: [],
+    evaluatedAt: "2026-10-20T00:00:00.000Z",
+    runtimePackage: {
+      context: { chapter: { order: 3 } },
+      audit: { reports: [], openIssues: [] },
+      meta: { riskTags: ["sepia_blocking:1"] },
+      failureClassification: { code: null, blockingObligations: [] },
+    },
+  });
+
+  const sepia = assessment.signals.find((signal) => signal.artifactType === "sepia_gate");
+  assert.equal(sepia.status, "invalid");
+  assert.equal(assessment.overallStatus, "invalid");
+  assert.equal(assessment.recommendedAction, "patch_repair");
 });
 
 test("buildChapterQualityLoopAssessment requires patch-first repair for local quality risk", () => {

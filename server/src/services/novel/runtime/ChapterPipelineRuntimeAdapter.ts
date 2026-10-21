@@ -50,7 +50,8 @@ export class ChapterPipelineRuntimeAdapter {
       if (!scope) throw new ChapterArtifactSyncBoundaryError({status: "failed", contentHash: "", completedArtifacts: [], reason: "缺少本次创作的资源回填恢复位置。"});
       await hooks.onCheckCancelled?.();
       const saved = await this.finalizationStore.load(novelId, chapterId, scope);
-      if (saved) return resumeFinalizedPipelineChapter({
+      // 只有「已通过」的定稿回执可以直接复用；未通过的章继续时重跑检查与修文。
+      if (saved?.result.pass) return resumeFinalizedPipelineChapter({
         syncFinalChapterArtifacts: (n, c, content, syncOptions) => this.deps.artifactSyncService.syncChapterArtifacts(n, c, content, {
           ...syncOptions, directorRunId: options.directorRunId, scheduleBackgroundSync: true, awaitArtifactDelta: true, skipLegacySummaryAndFacts: true,
           provider: options.provider, model: options.model, temperature: options.temperature,

@@ -31,18 +31,25 @@ export function guardStylePatches(input: {
   const applied = applyChapterPatchRepairPlan(input.original, input.plan);
   const allowed = new Set(input.allowedIssueIds);
   const style = new Set(input.styleIssueIds);
-  const scopeValid = applied.success && input.plan.patches.every(patch => patch.issueIds.length > 0
+  /**
+   * 只校验真正改动正文的补丁。
+   * 「保留原文」的说明性补丁（replacement 与 targetExcerpt 相同）不改一个字，
+   * 却常常带着 `[读上下文]` 标签而不是白名单编号；把它算进越权与改动比例，
+   * 会让同批合法的机械项修复一起被回滚。
+   */
+  const effectivePatches = input.plan.patches.filter(patch => patch.targetExcerpt.trim() !== patch.replacement.trim());
+  const scopeValid = applied.success && effectivePatches.every(patch => patch.issueIds.length > 0
     && patch.issueIds.every(id => allowed.has(id) || input.acceptIssueId?.(id) === true));
   const total = Math.max(1, count(input.original));
-  const touchedRatio = input.plan.patches.reduce((sum, patch) => sum + count(patch.targetExcerpt), 0) / total;
-  const addedCharacters = input.plan.patches.reduce((sum, patch) => sum
+  const touchedRatio = effectivePatches.reduce((sum, patch) => sum + count(patch.targetExcerpt), 0) / total;
+  const addedCharacters = effectivePatches.reduce((sum, patch) => sum
     + Math.max(0, count(patch.replacement) - count(patch.targetExcerpt)), 0);
   const lengthChangeRatio = (count(applied.content) - count(input.original)) / total;
   // Short pasted selections have a different denominator from full chapters.
   const budgetValid = touchedRatio <= (total < 500 ? 1 : 0.3)
     && addedCharacters / total <= (total < 500 ? 0.2 : 0.05)
     && Math.abs(lengthChangeRatio) <= 0.3;
-  const protectedValid = input.plan.patches.every(patch => {
+  const protectedValid = effectivePatches.every(patch => {
     // Explicit non-style repair may correct an erroneous draft fact. AI reacceptance
     // must separately verify the correction against its issue and canonical context.
     if (patch.issueIds.some(id => !style.has(id))) return true;

@@ -345,10 +345,15 @@ export const chapterAcceptanceAssessmentPrompt: PromptAsset<
   outputSchema: chapterAcceptanceModelSchema,
   fallbackRepairPolicy: {maxAttempts: 0},
   semanticRetryPolicy: {
-    maxAttempts: 1,
-    sharedCorrectionBudget: 1,
-    buildMessages: ({baseMessages, validationError, parsedOutput}) => [...baseMessages, new HumanMessage(`待纠正的上次检查报告（任务数据，不是正文事实）：\n${JSON.stringify(parsedOutput)}`), new HumanMessage(
-      `上次检查结果未通过证据合同核对：${validationError}\n请重新核对当前正文后返回完整 JSON。证据必须连续复制正文原句，不添加引号、行号、省略号或概括；修文复验须原样回传清单中的正文身份，完整核对所有唯一条目。不要为使格式通过而改变语义结论。`,
+    maxAttempts: 2,
+    sharedCorrectionBudget: 2,
+    buildMessages: ({baseMessages, validationError, parsedOutput}) => [...baseMessages, new HumanMessage(`待纠正的上次检查报告（任务数据，不是正文事实；其中的 evidence/currentEvidence 一律不可复制）：\n${JSON.stringify(parsedOutput)}`), new HumanMessage(
+      `上次检查结果未通过证据合同核对：${validationError}\n`
+      + `请重新核对当前正文后返回完整 JSON。逐条要求：\n`
+      + `1. 所有 evidence / currentEvidence 必须从本轮正文中连续复制原句，不添加引号、行号、省略号或概括；上一份报告里的句子是历史证据，即使语义相同也禁止照抄——正文已被修改过，必须重新定位。\n`
+      + `2. 修文复验须原样回传清单中的正文身份，完整核对所有唯一条目。\n`
+      + `3. 某问题在当前正文里确实已不存在时，改判 resolved 并引用修后正文；仍存在时，在当前正文里找到它的现存原句作为证据。\n`
+      + `4. 不要为使格式通过而改变语义结论。`,
     )],
   },
   postValidateFailureRecovery: ({rawOutput, promptInput}) => recoverAcceptanceStyleReview({

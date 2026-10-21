@@ -1,7 +1,7 @@
 import { prisma } from "../../../../db/prisma";
 import { ChapterContentPersistenceError } from "../../runtime/lifecycle";
 
-type AttemptStore = Pick<typeof prisma.chapterAutomaticAttempt, "findUnique" | "create">;
+type AttemptStore = Pick<typeof prisma.chapterAutomaticAttempt, "findUnique" | "create" | "deleteMany">;
 
 export class ChapterAutomaticAttemptService {
   constructor(private readonly store: AttemptStore = prisma.chapterAutomaticAttempt) {}
@@ -11,6 +11,21 @@ export class ChapterAutomaticAttemptService {
       return await this.store.findUnique({ where: { jobId_chapterId: { jobId, chapterId } } }) ? 1 : 0;
     } catch {
       throw new ChapterContentPersistenceError(chapterId, "无法读取章节自动处理额度，请检查数据库迁移和连接。");
+    }
+  }
+
+  /**
+   * 人工「从保存进度继续」时重新发一次本章额度。
+   *
+   * 额度记录是按 jobId+chapterId 唯一的，而 resume 复用同一个 job。不重置的话，
+   * 上次用尽后 `maxRetries` 恒为 0，用户点了继续也只会再评一次、连一轮修文都不跑，
+   * 章节永远停在同一条硬伤上。
+   */
+  async reset(jobId: string, chapterId: string): Promise<void> {
+    try {
+      await this.store.deleteMany({ where: { jobId, chapterId } });
+    } catch {
+      throw new ChapterContentPersistenceError(chapterId, "无法重置章节自动处理额度，请检查数据库迁移和连接。");
     }
   }
 

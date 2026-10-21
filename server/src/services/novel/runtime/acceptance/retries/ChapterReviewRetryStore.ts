@@ -3,6 +3,22 @@ import { prisma } from "../../../../../db/prisma";
 import { ChapterReviewRetryBudget, ReviewRetryPersistenceError, ReviewRetryExhaustedError, chapterReviewRetryStateSchema,
   type ChapterReviewRetryState } from "./ChapterReviewRetryBudget";
 
+/**
+ * 用户明确「从保存进度继续」时，为这一章重新发一次检查预算。
+ *
+ * 保存的检查结果已经不在（修文后中断、旧版本任务留下的正文），旧的重试计数
+ * 代表的是上一版正文的修复机会；继续沿用它，这一章会永远停在 exhausted，
+ * 连一次检查都跑不起来，只能靠人工改正文解锁。
+ */
+export async function resetChapterReviewRetryBudget(input: {
+  novelId: string; chapterId: string; executionId: string;
+}): Promise<void> {
+  await prisma.chapterArtifactSyncCheckpoint.deleteMany({ where: {
+    novelId: input.novelId, chapterId: input.chapterId,
+    contentHash: input.executionId, artifactType: "chapter_review_retry_budget:v1", syncMode: "execution",
+  } });
+}
+
 /** Lazily open the receipt: cached/finalized chapters do not create new attempts. */
 export function createPersistedChapterReviewRetryBudget(input: {
   novelId: string; chapterId: string; executionId: string; policy: ChapterReviewRetryPolicy;

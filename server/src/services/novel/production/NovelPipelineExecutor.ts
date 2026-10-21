@@ -13,7 +13,7 @@ import { runWithLlmUsageTracking } from "../../../llm/usageTracking";
 import { buildDirectorCompletionProfile } from "@ai-novel/shared/types/directorCompletion";
 import { ChapterRouteWindowService } from "../planning/ChapterRouteWindowService";
 import { ChapterRuntimeCoordinator } from "../runtime/ChapterRuntimeCoordinator";
-import { createPersistedChapterReviewRetryBudget, withChapterReviewRetryBudget, ReviewRetryPersistenceError } from "../runtime/acceptance";
+import { createPersistedChapterReviewRetryBudget, resetChapterReviewRetryBudget, withChapterReviewRetryBudget, ReviewRetryPersistenceError } from "../runtime/acceptance";
 import { CHAPTER_ARTIFACT_BOUNDARY_TYPE, ChapterArtifactSyncBoundaryError } from "../runtime/artifactSync";
 import { isChapterEmptyContentError } from "../runtime/chapterEmptyContentError";
 import { ChapterContentPersistenceError } from "../runtime/lifecycle";
@@ -544,7 +544,7 @@ export class NovelPipelineExecutor {
           let chapterResult: Awaited<ReturnType<ChapterRuntimeCoordinator["runPipelineChapter"]>> | null = null;
           const savedUsage = runtimePayload.directorNext?.chapterUsage?.find(row => row.chapterId === chapter.id);
           const manualRevision = manuallyEditedChapterIds.has(chapter.id);
-          const recoveringSavedQuality = savedUsage?.endJobTokens !== undefined || manualRevision;
+          let recoveringSavedQuality = savedUsage?.endJobTokens !== undefined || manualRevision;
           if (recoveringSavedQuality) {
             try {
               if (savedUsage?.endJobTokens !== undefined) {
@@ -554,9 +554,35 @@ export class NovelPipelineExecutor {
               }
               chapterResult = await recoverSavedChapterQuality(novelId, chapter, {manualRevision, provider: runtimePayload.provider, model: runtimePayload.model, temperature: runtimePayload.temperature});
             } catch (error) {
-              throw new PipelineIssueFailure(error instanceof Error ? error.message : "章节保存进度无法核验。",
-                error instanceof SavedChapterQualityRecoveryError ? error.issueCode : "runtime.data_integrity",
-                "chapter_usage", chapter.id, chapter.order);
+              /**
+               * 正文在、检查结果不在（修文后中断、旧任务留下的正文）时，继续的语义是
+               * 「重跑这一章的检查」，不是把用户挡在「请核对章节内容后继续」上——
+               * 否则这一章永远拿不到检查结果，只能靠人工改正文解锁。
+               * 顺带重置本章的检查重试预算：旧计数属于上一版正文，沿用会让重跑连一次检查都跑不起来。
+               */
+              if (runtimePayload.directorNext
+                && error instanceof SavedChapterQualityRecoveryError
+                && error.issueCode === "runtime.data_integrity") {
+                await resetChapterReviewRetryBudget({ novelId, chapterId: chapter.id, executionId: jobId });
+                /**
+                 * 本章要在本作业里重新检查，旧用量检查点必须一起退役：
+                 * 它已闭合（endJobTokens 有值），beginChapterUsage 会以「用量已闭合」直接拒绝，
+                 * 于是「继续」最后还是停在同一条报错上。清掉后从当前作业用量重新开一段。
+                 */
+                runtimePayload.directorNext.chapterUsage = (runtimePayload.directorNext.chapterUsage ?? [])
+                  .filter(row => row.chapterId !== chapter.id);
+                recoveringSavedQuality = false;
+                logPipelineWarn("保存进度缺少可复用的检查结果，改为重跑本章检查", {
+                  jobId,
+                  order: chapter.order,
+                  reason: error.message,
+                });
+                chapterResult = null;
+              } else {
+                throw new PipelineIssueFailure(error instanceof Error ? error.message : "章节保存进度无法核验。",
+                  error instanceof SavedChapterQualityRecoveryError ? error.issueCode : "runtime.data_integrity",
+                  "chapter_usage", chapter.id, chapter.order);
+              }
             }
           }
 
@@ -681,6 +707,30 @@ export class NovelPipelineExecutor {
           };
           try {
             previouslyConsumed = chapterRetryCountUsed = await this.automaticAttempts.used(jobId, chapter.id);
+            /**
+             * 人工恢复要重新拿回额度。
+             *
+             * resume 复用同一个 jobId，而自动处理额度按 jobId+chapterId 唯一：上次用尽后，
+             * 继续时 `maxRetries` 恒为 0，只评一次、不修文，用户看到的就是「点继续没反应」。
+             * 只有「上次确实消耗过、且这一章仍停在待修」才重置——正常首次执行不受影响。
+             */
+            if (previouslyConsumed > 0) {
+              const pending = await prisma.chapter.findFirst({
+                where: { id: chapter.id, novelId },
+                select: { chapterStatus: true, generationState: true },
+              });
+              const needsRepair = pending?.chapterStatus === "needs_repair"
+                || pending?.generationState === "reviewed";
+              if (needsRepair) {
+                await this.automaticAttempts.reset(jobId, chapter.id);
+                await resetChapterReviewRetryBudget({ novelId, chapterId: chapter.id, executionId: jobId });
+                chapterRetryCountUsed = 0;
+                previouslyConsumed = 0;
+                logPipelineInfo("人工恢复：已重置本章自动处理额度", {
+                  jobId, chapterId: chapter.id, order: chapter.order,
+                });
+              }
+            }
             const reviewRetryBudget = createPersistedChapterReviewRetryBudget({ novelId, chapterId: chapter.id,
               executionId: jobId, policy: resolveChapterReviewRetryPolicy(issueGovernance?.policy),
               beforeRequest: async () => { await checkCancelled(); await checkChapterBudget(false, DIRECTOR_CHAPTER_PREFLIGHT_RESERVE_TOKENS, "review"); } });

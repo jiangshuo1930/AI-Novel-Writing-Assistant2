@@ -18,6 +18,7 @@ export interface ChapterArtifactCheckpointRecord {
 
 const RUNNING_STALE_MS = 15 * 60 * 1000;
 const MAX_FAILED_ATTEMPTS = 2;
+const FAILED_RETRY_COOLDOWN_MS = 10 * 60 * 1000;
 
 export class ChapterArtifactCheckpointStore {
   async read(identity: ChapterArtifactCheckpointIdentity): Promise<ChapterArtifactCheckpointRecord | null> {
@@ -55,9 +56,14 @@ export class ChapterArtifactCheckpointStore {
         try {
           const metadata = existing.metadataJson ? JSON.parse(existing.metadataJson) as Record<string, unknown> : {};
           if (Number(metadata.attemptCount ?? 0) >= MAX_FAILED_ATTEMPTS) {
-            return "already_done";
+            const cooledDown = existing.updatedAt <= new Date(Date.now() - FAILED_RETRY_COOLDOWN_MS);
+            if (!cooledDown) {
+              return "already_done";
+            }
+            retryMetadata = {...metadata, ...retryMetadata, attemptCount: 1};
+          } else {
+            retryMetadata = {...metadata, ...retryMetadata, attemptCount: Number(metadata.attemptCount ?? 0) + 1};
           }
-          retryMetadata = { ...metadata, ...retryMetadata, attemptCount: Number(metadata.attemptCount ?? 0) + 1 };
         } catch {
           return "already_done";
         }

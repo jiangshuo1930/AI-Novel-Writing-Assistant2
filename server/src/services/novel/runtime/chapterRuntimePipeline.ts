@@ -26,8 +26,10 @@ import { runChapterRepairText } from "./repair/chapterRepairRuntime";
 import { shouldAttemptAutomaticRepair } from "./repair/ChapterRepairEligibility";
 import { detectNewSevereProseFindings } from "./proseQuality";
 import { ChapterPatchRepairFailedError } from "../chapterPatchRepairService";
+import { SEPIA_ADVISORY_REPAIR_TAG } from "../../sepia/acceptance/sepiaAcceptance";
 import {
   hasSepiaSelfCheckUnavailable,
+  readSepiaAdvisoryCount,
   readSepiaBlockingCount,
   readSepiaSelfCheckFailCount,
   selectChapterRepairCandidate,
@@ -217,6 +219,8 @@ const NON_PATCHABLE_REVIEW_ISSUE_CODES = new Set(["acceptance_gate_unavailable",
  * 三轮是收敛上限，不是目标值——每轮都要求比上一轮少，没变少就停并保留最好的一版。
  */
 const SEPIA_CONVERGENCE_MAX_ROUNDS = 3;
+/** advisory 清理轮数上限（见循环内 `advisoryOnlyRounds` 的实测说明） */
+const ADVISORY_ONLY_MAX_ROUNDS = 2;
 
 /** 一版正文及其验收结果；多轮收敛时按这个粒度比较与回滚 */
 interface ChapterEvaluationSnapshot {
@@ -270,7 +274,12 @@ export async function runPipelineChapterWithRuntime(
   if (artifactSyncPolicy === "director_v2") {
     await hooks.onCheckCancelled?.();
     const saved = await deps.loadFinalizedChapterResult?.(novelId, chapterId);
-    if (saved) return resumeFinalizedPipelineChapter(deps, novelId, chapterId, saved, options, hooks);
+    /**
+     * 保存的定稿回执只复用「已通过」的结论。
+     * 未通过的章继续时必须重跑检查与修文：否则一次失败会把这一章锁死在旧结论上，
+     * 用户点「从保存进度继续」看到的只是同一份失败结果被重放一遍。
+     */
+    if (saved?.result.pass) return resumeFinalizedPipelineChapter(deps, novelId, chapterId, saved, options, hooks);
   }
   const request = deps.validateRequest(requestInput);
   await deps.ensureNovelCharacters(novelId, "run chapter pipeline");
@@ -308,6 +317,16 @@ export async function runPipelineChapterWithRuntime(
   }
 
   let retryCountUsed = 0;
+  /**
+   * advisory 清理的收敛状态。
+   *
+   * 实测：给一轮只能清掉一半（L1-2 的 8 处吃完一整份补丁预算），
+   * 冒号/句号密度这类要第二轮才动。但也不能无限要——第 4 轮开始
+   * 句号密度只从 4.1 挪到 4.2，相邻同长句反而从 3 句变回 4 句。
+   * 所以上限 2 轮，且每轮必须比上轮少，否则停。
+   */
+  let advisoryOnlyRounds = 0;
+  let advisoryCountBeforeRepair: number | null = null;
   let latestResult: FinalizedRuntimeResult | null = null;
   let latestIssues: ReviewIssue[] = [];
   let pass = false;
@@ -428,12 +447,21 @@ export async function runPipelineChapterWithRuntime(
     const sepiaMechanical = readSepiaBlockingCount(latestResult.runtimePackage);
     const sepiaSelfCheck = readSepiaSelfCheckFailCount(latestResult.runtimePackage);
     const sepiaSelfCheckUnavailable = hasSepiaSelfCheckUnavailable(latestResult.runtimePackage);
+    /**
+     * 「只差 advisory」的一轮修文：机械门没有硬伤，开修文只为清 advisory。
+     *
+     * 两个后果必须一起处理，否则会把好好的章判死：
+     *   1. `pass` 不能因它变 false——advisory 在 sepia 里不阻塞；
+     *   2. 只跑一轮，第二轮不再为 advisory 重复索取（清不干净就如实留在报告里）。
+     */
+    const advisoryOnlyRepair = latestResult.runtimePackage.meta?.riskTags
+      ?.includes(SEPIA_ADVISORY_REPAIR_TAG) === true;
     pass = !shouldPauseForAcceptance
       && !latestResult.runtimePackage.meta?.riskTags?.includes("style_review_unavailable")
       && sepiaMechanical === 0
       && !latestResult.runtimePackage.meta?.riskTags?.includes("sepia_gate_unavailable")
       && sepiaSelfCheck === 0
-      && !shouldRepairFromAcceptance
+      && !(shouldRepairFromAcceptance && !advisoryOnlyRepair)
       && !latestResult.runtimePackage.audit.hasBlockingIssues
       && latestResult.runtimePackage.timelineCheck?.status !== "failed"
       && isQualityPass(latestResult.runtimePackage.audit.score, qualityThreshold)
@@ -533,7 +561,23 @@ export async function runPipelineChapterWithRuntime(
     if (attempt >= attemptLimit) {
       break;
     }
-    if (shouldDeferNonPatchableReviewRisk(latestResult.runtimePackage)) {
+    // advisory 清理：最多两轮，且必须比上一轮少；没变少就停，把当前版本留作结果。
+    if (advisoryOnlyRepair) {
+      const advisoryNow = readSepiaAdvisoryCount(latestResult.runtimePackage);
+      if (advisoryOnlyRounds >= ADVISORY_ONLY_MAX_ROUNDS) break;
+      if (advisoryCountBeforeRepair !== null && advisoryNow >= advisoryCountBeforeRepair) break;
+      advisoryCountBeforeRepair = advisoryNow;
+      advisoryOnlyRounds += 1;
+    }
+    /**
+     * 验收门没跑成时默认不进自动修文（判不了好坏就不该写）。
+     *
+     * 但 sepia 机械项是**确定性**判定，跟那次失败的 LLM 验收没有关系：
+     * 禁用词、冒号、破折号在正文里数得出来，验收挂了也照样该清。
+     * 原先这里无条件 defer，导致第 4 章验收因 `current_quote_invalid` 失败后
+     * 直接跳人工，8 处禁用词一处没改。所以有 sepia 活要干时继续走修文。
+     */
+    if (shouldDeferNonPatchableReviewRisk(latestResult.runtimePackage) && !hasSepiaWork) {
       recoverableRepairFailure = {
         chapterId,
         message: "本章部分检查未完成，正文已保留，请从章节页面重新审校。",
@@ -580,6 +624,21 @@ export async function runPipelineChapterWithRuntime(
     rewriteGuard = repairResult.rewriteGuard;
     styleRewriteBaseline = repairResult.styleRewriteBaseline;
     if (repairResult.recoverableFailure) {
+      /**
+       * 只为 advisory 开的那一轮修文，失败不能把章节判成待修。
+       *
+       * advisory 在 sepia 里本来就不阻塞：这一轮成功是加分，失败就该回到
+       * 「正文原样 + 报告里如实挂着 advisory」——原先就是这个状态。
+       * 若照常走 recoverableRepairFailure，一个冒号密度没修成反而会把已经
+       * 能过的章打成 needs_repair，比不开这一轮更差。
+       */
+      if (advisoryOnlyRepair) {
+        console.warn("[sepia] advisory 清理未成功，保留原稿并继续", {
+          novelId, chapterId, order: assembled.chapter.order,
+          reason: repairResult.recoverableFailure.message,
+        });
+        break;
+      }
       if (rewriteGuard && latestResult.runtimePackage.styleReview) latestResult.runtimePackage.styleReview.rewriteGuard = rewriteGuard;
       recoverableRepairFailure = repairResult.recoverableFailure;
       await deps.markChapterNeedsRepair(chapterId);
@@ -589,6 +648,15 @@ export async function runPipelineChapterWithRuntime(
     if (repairResult.content === content) break;
     const newProseFindings = detectNewSevereProseFindings(content, repairResult.content);
     if (newProseFindings.length > 0) {
+      // 同一条纪律：只为 advisory 的修文把正文改坏时，弃用这一版、留原稿，
+      // 不把章节打回待修——它不是被修坏的，只是没被修好。
+      if (advisoryOnlyRepair) {
+        console.warn("[sepia] advisory 清理引入了新的表达问题，弃用该版本并保留原稿", {
+          novelId, chapterId, order: assembled.chapter.order,
+          findings: [...new Set(newProseFindings.map(finding => finding.message))],
+        });
+        break;
+      }
       recoverableRepairFailure = {
         chapterId,
         message: `修文新增严重表达问题，保留原稿：${[...new Set(newProseFindings.map(finding => finding.message))].join("；")}`,

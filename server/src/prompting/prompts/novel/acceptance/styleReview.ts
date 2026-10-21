@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { styleRiskLayerSchema } from "@ai-novel/shared/types/styleEngine";
 import type { ChapterAcceptanceAssessmentOutput, ChapterAcceptancePromptInput } from "../chapterAcceptance.prompts";
-import { validateRepairReview } from "./repairVerification";
+import { ChapterRepairVerificationError, validateRepairReview } from "./repairVerification";
 import { validateContinuityReview } from "./continuityReview";
 
 export class ChapterStyleReviewValidationError extends Error {
@@ -84,14 +84,29 @@ export function validateAcceptanceStyleReview(
 
 /** A failed style citation cannot authorize a rewrite or erase the independent story review. */
 export function recoverAcceptanceStyleReview(output: ChapterAcceptanceAssessmentOutput, input: ChapterAcceptancePromptInput) {
-  validateRepairReview(output, input);
-  validateContinuityReview(output, input);
+  // 复验证据不合格时剥离 repairVerification 再降级，而不是整单作废：
+  // blockingIssues 的证据校验是独立的，语义判断仍然可用；缺了 repairVerification
+  // 只意味着「修文事实保护未被复验确认」，下游会按未确认处理，不存在放伪证的风险。
+  let salvaged = output;
   try {
-    return validateAcceptanceStyleReview(output, input);
+    validateRepairReview(output, input);
+  } catch (error) {
+    // 只有「证据过期」可降级；身份不匹配（模型看的可能不是本轮正文）必须整体作废。
+    if (!(error instanceof ChapterRepairVerificationError) || error.code !== "evidence_invalid") throw error;
+    salvaged = {
+      ...output,
+      repairVerification: undefined,
+      status: output.status === "accepted" ? "continue_with_risk" as const : output.status,
+      riskTags: [...new Set([...output.riskTags, "repair_verification_unavailable"])],
+    };
+  }
+  validateContinuityReview(salvaged, input);
+  try {
+    return validateAcceptanceStyleReview(salvaged, input);
   } catch (error) {
     if (!(error instanceof ChapterStyleReviewValidationError)) throw error;
     return {
-      ...output,
+      ...salvaged,
       styleReview: null,
       styleReviewFailure: {code: error.code, message: error.message},
       blockingIssues: [...output.blockingIssues.filter(issue => issue.category !== "voice"), {

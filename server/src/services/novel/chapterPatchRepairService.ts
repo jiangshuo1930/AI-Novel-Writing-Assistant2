@@ -11,6 +11,42 @@ import { buildChapterPatchRepairContextBlocks } from "../../prompting/prompts/no
 import { chapterPatchRepairPrompt } from "../../prompting/prompts/novel/chapterPatchRepair.prompts";
 import { isStyleIssueRewritable, type StyleRewriteGuard, type StyleRewriteBaseline } from "@ai-novel/shared/types/styleEngine";
 import { guardStylePatches, isStyleRewriteBlocked } from "../styleEngine/rewrite";
+import { getSepiaPack } from "../sepia/pack";
+
+/**
+ * sepia 的禁用词是一张词表，不是几个孤立的词：`忽然`、`猛地`、`骤然` 都在里面。
+ * 只告诉模型「删掉忽然」，它就会换成「猛地」，下一轮门照样报命中——两轮下来
+ * 正文在几个同族副词之间来回搬，硬伤永远清不了零。
+ *
+ * 所以清 sepia 机械项时把整张表一起给模型，并说清「换同类词等于没改」。
+ */
+function buildSepiaBannedWordHint(issuesJson: string, runtimePackage?: ChapterRuntimePackage | null): string | null {
+  /**
+   * 只给**硬伤**轮注入禁用词表。
+   *
+   * advisory 的清理（冒号、句号密度、超长句、同长句、对话占比、引号强调）全是
+   * 形态问题，塞 153 个禁用词进去只会让模型顺手改词，把没坏的地方改坏；
+   * 而且 advisory 指令本身带 `[sepia …]` 前缀，按文本匹配会误触发。
+   */
+  const tags = runtimePackage?.meta?.riskTags ?? [];
+  const hasSepiaBlockingWork = tags.some(tag => tag.startsWith("sepia_blocking"));
+  const hasSepiaWork = runtimePackage ? hasSepiaBlockingWork : /\[sepia\b/i.test(issuesJson);
+  if (!hasSepiaWork) return null;
+  let words: string[] = [];
+  try {
+    words = getSepiaPack().data.bannedWords ?? [];
+  } catch {
+    return null;
+  }
+  if (!words.length) return null;
+  return [
+    "本轮要清零 sepia 机械项，额外遵守：",
+    `1. 下列禁用词只要在 replacement 里再出现一次，这一轮仍然算没修完：${words.map(word => `「${word}」`).join("")}`,
+    "2. 不要把一个禁用词换成同族副词。忽然→猛地、忽然→骤然、轻轻→微微 都还在这张表里，换一个等于没改。",
+    "   要么直接删掉这个副词，要么改成具体动作、句读或名词性描写。",
+    "3. 只改命中的那几处，不要顺手润色别处。",
+  ].join("\n");
+}
 
 export type PatchRepairMode =
   | "detect_only"
@@ -96,6 +132,9 @@ export class ChapterPatchRepairService {
       ? buildChapterPatchRepairContextBlocks(repairContext, issuesJson)
       : undefined;
     let generated: { output: ChapterPatchRepairPlan };
+    const modeHint = [input.modeHint, buildSepiaBannedWordHint(issuesJson, input.runtimePackage)]
+      .filter((part): part is string => Boolean(part && part.trim()))
+      .join("\n");
     try {
       generated = await runStructuredPrompt({
         asset: chapterPatchRepairPrompt,
@@ -104,7 +143,7 @@ export class ChapterPatchRepairService {
           chapterTitle: input.chapterTitle,
           chapterContent: input.content,
           issuesJson,
-          modeHint: input.modeHint,
+          modeHint: modeHint || undefined,
           styleProtection: styleIssues.length ? JSON.stringify({ allowedIssueIds, styleIssueIds: allowedStyleIds,
             reportOnly: styleIssues.filter(issue => !isStyleIssueRewritable(issue)), protectedTerms,
             wholeChapterTouchedRatioMax: 0.3, wholeChapterAddedRatioMax: 0.05 }) : undefined,

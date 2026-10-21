@@ -7,6 +7,8 @@ import type { DirectorIssueTaskContext } from "../../director/issues";
 import { reportPipelineIssue } from "../issueGovernance/PipelineIssueGovernance";
 import type { ReplanResult } from "@ai-novel/shared/types/novel";
 import { resolveDirectorIssueDecision, type DirectorIssueDecision } from "@ai-novel/shared/types/directorIssue";
+import { prisma } from "../../../../db/prisma";
+import { getSepiaGate } from "../../../sepia/pack";
 
 type ChapterPipelineResult = Awaited<ReturnType<ChapterRuntimeCoordinator["runPipelineChapter"]>>;
 type ChapterQualityStopAction = Extract<DirectorIssueDecision["action"], "pause_for_manual" | "fail_task">;
@@ -73,6 +75,40 @@ function readSepiaGateVerdict(
   };
 }
 
+/**
+ * runtimePackage 缺失时的兜底复核。
+ *
+ * 恢复已保存的章节、走旧记录、或验收本身降级时，`runtimePackage` 可能是 null。
+ * 旧逻辑只从 riskTags 读门结论，读不到就当「没有 sepia 问题」——于是没过门的
+ * 正文会被记成 completed/approved，用户回到编辑器却发现硬伤原样挂着。
+ * 这里直接对落库正文补跑一次机械门：门是确定性的，跑一次比猜一次便宜。
+ */
+async function resolveSepiaGateVerdict(
+  chapterId: string,
+  runtimePackage: ChapterPipelineResult["runtimePackage"],
+): Promise<ReturnType<typeof readSepiaGateVerdict>> {
+  const direct = readSepiaGateVerdict(runtimePackage);
+  const hasSignal = (runtimePackage?.meta?.riskTags ?? []).some(tag => tag.startsWith("sepia"));
+  if (hasSignal) return direct;
+  try {
+    const chapter = await prisma.chapter.findUnique({ where: { id: chapterId }, select: { content: true } });
+    const content = chapter?.content?.trim();
+    if (!content) return direct;
+    const report = await getSepiaGate().run(content);
+    return {
+      blocked: report.blockingCount > 0,
+      blocking: report.blockingCount,
+      selfCheck: 0,
+      unavailable: false,
+      selfCheckUnavailable: false,
+      evidence: `sepia_recheck: blocking=${report.blockingCount}, advisory=${report.advisoryCount}`,
+    };
+  } catch {
+    // 复核跑不成也不能当成通过：按「未过门」处理，让人看得见。
+    return { ...direct, blocked: true, unavailable: true, evidence: "sepia_recheck_unavailable" };
+  }
+}
+
 export async function applyChapterQualityClosure(input: {
   governance: DirectorIssueTaskContext | null;
   workflowTaskId?: string;
@@ -104,7 +140,7 @@ export async function applyChapterQualityClosure(input: {
   const final = { score: chapterResult.score, issues: chapterResult.issues };
   const replanRecommendation = chapterResult.runtimePackage?.replanRecommendation;
   // sepia 机械门是硬门：硬伤没清零、或门没能跑成，都不算「这章过了」。
-  const sepiaGate = readSepiaGateVerdict(chapterResult.runtimePackage);
+  const sepiaGate = await resolveSepiaGateVerdict(chapter.id, chapterResult.runtimePackage);
   // sepia 未过门时不留 defer_and_continue：否则质量闭环会把本章记成「已完成」，
   // 恢复创作时被 skipCompleted 跳过，等于绕过门。留空则本章停在 needs_repair，
   // 恢复后重新走验收与 sepia 门，过了才继续。

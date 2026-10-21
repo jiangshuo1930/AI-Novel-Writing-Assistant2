@@ -1,6 +1,6 @@
 export { buildAcceptanceCacheIdentity } from "./cacheIdentity";
 export { describeAcceptanceFailure } from "./failure";
-export { currentChapterReviewRetryBudget, createPersistedChapterReviewRetryBudget,
+export { currentChapterReviewRetryBudget, createPersistedChapterReviewRetryBudget, resetChapterReviewRetryBudget,
   createTransientChapterReviewRetryBudget, withChapterReviewRetryBudget, ReviewRetryPersistenceError,
   type ChapterReviewRetrySummary } from "./retries";
 export { isAcceptanceStyleReviewEnabled, applyAcceptanceStyleContext, buildAcceptanceStyleReport,
